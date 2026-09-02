@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='仪表盘'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>
+    <style>
+        .el-row {
+            margin-top: 20px;
+            margin-bottom: 40px;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+        }
+        .card-wrapper {
+            background: #d3dce6;
+            min-height: 300px;
+            border-radius: 25px;
+        }
+        .card-total {
+            min-height: 100px;
+            text-align: center;
+            padding-top: 30px;
+
+        }
+        .card-day{
+            min-height: 100px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+        .card-item {
+            padding-top: 10px;
+            text-align: center;
+            justify-content: center;
+        }
+
+        .card-item-title {
+            font-size: 18px
+        }
+        .card-item-num {
+            font-size: 35px;
+            color: #409EFF;
+        }
+        .card-link {
+            min-height: 80px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}"></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <el-row :gutter="20">
+                    <el-col :span="8">
+                        <div class="card-wrapper">
+                            <div class="card-total">
+                                <div class="card-item">
+                                    <div class="card-item-title">总文章数</div>
+                                    <div class="card-item-num" th:text="${stats?.articleTotal?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-day">
+                                <div class="card-item">
+                                    <div class="card-item-title">昨日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.articleYesterday?:0}"></div>
+                                </div>
+                                <div class="card-item">
+                                    <div class="card-item-title">今日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.articleToday?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-link">
+                                <a class="link-a blue-hover" th:href="${base.adminPath}+'/article'">查看详情<span
+                                        class="el-icon-right"></span></a>
+                            </div>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="card-wrapper">
+                            <div class="card-total">
+                                <div class="card-item">
+                                    <div class="card-item-title">总分类数</div>
+                                    <div class="card-item-num" th:text="${stats?.categoryTotal?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-day">
+                                <div class="card-item">
+                                    <div class="card-item-title">昨日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.categoryYesterday?:0}"></div>
+                                </div>
+                                <div class="card-item">
+                                    <div class="card-item-title">今日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.categoryToday?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-link">
+                                <a class="link-a blue-hover" th:href="${base.adminPath}+'/category'">查看详情<span
+                                        class="el-icon-right"></span></a>
+                            </div>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="card-wrapper">
+                            <div class="card-total">
+                                <div class="card-item">
+                                    <div class="card-item-title">总标签数</div>
+                                     <div class="card-item-num" th:text="${stats?.tagTotal?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-day">
+                                <div class="card-item">
+                                    <div class="card-item-title">昨日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.tagYesterday?:0}"></div>
+                                </div>
+                                <div class="card-item">
+                                    <div class="card-item-title">今日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.tagToday?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-link">
+                                <a class="link-a blue-hover" th:href="${base.adminPath}+'/tag'">查看详情<span
+                                        class="el-icon-right"></span></a>
+                            </div>
+                        </div>
+                    </el-col>
+                </el-row>
+                <el-row :gutter="20">
+                    <el-col :span="8">
+                        <div class="card-wrapper">
+                            <div class="card-total">
+                                <div class="card-item">
+                                    <div class="card-item-title">总评论数</div>
+                                     <div class="card-item-num" th:text="${stats?.commentTotal?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-day">
+                                <div class="card-item">
+                                    <div class="card-item-title">昨日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.commentYesterday?:0}"></div>
+                                </div>
+                                <div class="card-item">
+                                    <div class="card-item-title">今日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.commentToday?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-link">
+                                <a class="link-a blue-hover" th:href="${base.adminPath}+'/comment'">查看详情<span
+                                        class="el-icon-right"></span></a>
+                            </div>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="card-wrapper">
+                            <div class="card-total">
+                                <div class="card-item">
+                                    <div class="card-item-title">总访问量</div>
+                                     <div class="card-item-num" th:text="${stats?.viewTotal?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-day">
+                                <div class="card-item">
+                                    <div class="card-item-title">昨日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.viewYesterday?:0}"></div>
+                                </div>
+                                <div class="card-item">
+                                    <div class="card-item-title">今日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.viewToday?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-link">
+                                <a class="link-a blue-hover" th:href="${base.adminPath}+'/visitor'">查看详情<span
+                                        class="el-icon-right"></span></a>
+                            </div>
+                        </div>
+                    </el-col>
+                    <el-col :span="8">
+                        <div class="card-wrapper">
+                            <div class="card-total">
+                                <div class="card-item">
+                                    <div class="card-item-title">总友链数</div>
+                                     <div class="card-item-num" th:text="${stats?.linkTotal?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-day">
+                                <div class="card-item">
+                                    <div class="card-item-title">昨日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.linkYesterday?:0}"></div>
+                                </div>
+                                <div class="card-item">
+                                    <div class="card-item-title">今日新增</div>
+                                    <div class="card-item-num" th:text="${stats?.linkToday?:0}"></div>
+                                </div>
+                            </div>
+                            <div class="card-link">
+                                <a class="link-a blue-hover" th:href="${base.adminPath}+'/link'">查看详情<span
+                                        class="el-icon-right"></span></a>
+                            </div>
+                        </div>
+                    </el-col>
+                </el-row>
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            page: {
+                pageTes: 1,
+                size: 20,
+            }
+        },
+    })
+</script>
+
+</body>
+</html>

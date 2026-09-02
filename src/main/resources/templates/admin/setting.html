@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='系统设置'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>
+    <style>
+        .el-form-item__label{
+            color: #333;
+        }
+        .el-input{
+            width: 600px;
+        }
+        .el-textarea{
+            width: 600px;
+        }
+        .json-preview {
+            margin: 0;
+            padding: 16px;
+            background-color: #f5f7fa;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 500px;
+            overflow-y: auto
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}"></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <!--ip测试弹窗-->
+                <el-dialog title="API测试" :visible.sync="testResultVisible" width="80%">
+                    <div v-for="item in testResult" :key="item.ip">
+                        <el-row>
+                            <el-col :span="24"><h3 v-text="'ip:'+item.ip"></h3></el-col>
+                        </el-row>
+                        <el-row>
+                            <el-col :span="12">
+                                <el-card shadow="hover">
+                                    <template #header>返回数据</template>
+                                    <pre class="json-preview">{{ item.result }}</pre>
+                                </el-card>
+                            </el-col>
+                            <el-col :span="12">
+                                <el-card shadow="hover">
+                                    <template #header>解析数据</template>
+                                    <pre class="json-preview">{{ item.convertResult }}</pre>
+                                </el-card>
+                            </el-col>
+                        </el-row>
+                    </div>
+
+                </el-dialog>
+                <el-form :rules="rules" :model="configMap" ref="sysConfigForm" label-position="right" label-width="120px">
+                    <!--头像地址-->
+                    <el-form-item :prop="code" v-for="code in ['avatarUrl']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <div style="display: flex">
+                            <div>
+                                <el-tooltip class="item" effect="dark" content="点击上传" placement="top">
+                                    <el-upload style="display: inline-block"
+                                               drag
+                                               :action="fileUploadUrl"
+                                               :show-file-list="false"
+                                               :on-success="(res, file, fileList) => handleAvatarSuccess(res, code)"
+                                               :before-upload="beforeAvatarUpload">
+                                        <img v-if="configMap[code]" :src="configMap[code]" style="width: 100%;height: 100%" alt="">
+                                        <i v-else class="el-icon-plus avatar-uploader-icon"></i>
+                                    </el-upload>
+                                </el-tooltip>
+                            </div>
+                            <div style="margin-left: 0.5rem;display: block" >
+                                <el-button type="info" @click="configMap[code] = oldConfigMap?.[code]?.['defValue']">默认</el-button>
+                                <el-button type="primary" @click="handleFileOpen(code)">图库</el-button>
+                                <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                            </div>
+                        </div>
+                    </el-form-item>
+                    <!--网站域名-->
+                    <el-form-item :prop="code" v-for="code in ['webHost']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input show-word-limit maxlength="50" v-model="configMap[code]" placeholder="请输入内容" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--网站标题-->
+                    <el-form-item :prop="code" v-for="code in ['webTitle']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input  show-word-limit maxlength="50" v-model="configMap[code]" placeholder="请输入内容" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--网站描述-->
+                    <el-form-item :prop="code" v-for="code in ['webDescription']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input  show-word-limit maxlength="200" type="textarea" autocomplete="off" :autosize="{ minRows: 2, maxRows: 4 }" v-model="configMap[code]" placeholder="请输入内容" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--逐显标题-->
+                    <el-form-item :prop="code" v-for="code in ['showTextTitle']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input  show-word-limit maxlength="100" v-model="configMap[code]" placeholder="请输入内容" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--逐显描述-->
+                    <el-form-item :prop="code" v-for="code in ['showTextDesc']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input  show-word-limit maxlength="200" type="textarea" autocomplete="off" :autosize="{ minRows: 2, maxRows: 4 }" v-model="configMap[code]" placeholder="请输入内容" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--后端管理路径-->
+                    <el-form-item :prop="code" v-for="code in ['adminPath']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input show-word-limit maxlength="10" v-model="configMap[code]" :placeholder="'示例：'+oldConfigMap?.[code]?.['defValue']" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--后端管理路径-->
+                    <el-form-item :prop="code" v-for="code in ['aboutRelArticleId']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input show-word-limit maxlength="5" v-model="configMap[code]" :placeholder="oldConfigMap?.[code]?.['defValue']" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--登录验证码-->
+                    <el-form-item v-for="code in ['loginCaptchaOn']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-switch v-model="configMap[code]"
+                                   active-value="1" inactive-value="0" @change="updateConfig(code, configMap[code])"></el-switch>
+                    </el-form-item>
+                    <!--网站起始时间-->
+                    <el-form-item :prop="code" v-for="code in ['webStartTime']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input show-word-limit maxlength="19" v-model="configMap[code]" :placeholder="'示例：'+oldConfigMap?.[code]?.['defValue']" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--网站起始时间-->
+                    <el-form-item :prop="code" v-for="code in ['copyrightYear']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input show-word-limit maxlength="9" v-model="configMap[code]" :placeholder="'示例：'+oldConfigMap?.[code]?.['defValue']" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--网站ICP备案号-->
+                    <el-form-item :prop="code" v-for="code in ['footerICP']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input show-word-limit maxlength="30" v-model="configMap[code]" :placeholder="'示例：'+oldConfigMap?.[code]?.['defValue']" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--网站公安备案号-->
+                    <el-form-item :prop="code" v-for="code in ['footerPolice']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input show-word-limit maxlength="30" v-model="configMap[code]" :placeholder="'示例：'+oldConfigMap?.[code]?.['defValue']" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--IP地址查询API-->
+                    <el-form-item :prop="code" v-for="code in ['ipLocationApi']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input  show-word-limit maxlength="100" v-model="configMap[code]" placeholder="{ip}替换ip输入位置" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button type="info" @click="configMap[code] = oldConfigMap?.[code]?.['defValue']">默认</el-button>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--地址解析Json模板-->
+                    <el-form-item :prop="code" v-for="code in ['ipLocationApiTemplate']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input  show-word-limit maxlength="1000" type="textarea" autocomplete="off" :autosize="{ minRows: 4, maxRows: 8 }" v-model="configMap[code]" placeholder="结果替换:$.data.country->国家,$.data.prov->省份,$.data.city->城市,$.data.area->区域,$data.ips->运营商,$.data.ip->ip" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button type="info" @click="configMap[code] = oldConfigMap?.[code]?.['defValue']">默认</el-button>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--支持IPV6-->
+                    <el-form-item v-for="code in ['ipLocationApiIpv6']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-switch v-model="configMap[code]"
+                                   active-value="1" inactive-value="0" @change="updateConfig(code, configMap[code])"></el-switch>
+                        <el-button type="primary" style="margin-left: 1rem" @click="testApi">测试API</el-button>
+                    </el-form-item>
+                    <!--站长统计-->
+                    <el-form-item :prop="code" v-for="code in ['webStats']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <el-input  show-word-limit maxlength="1000" type="textarea" autocomplete="off" :autosize="{ minRows: 5, maxRows: 10 }" v-model="configMap[code]" :placeholder="'示例：\n'+oldConfigMap?.[code]?.['defValue']" @keyup.esc.native="cancelEdit(code)"></el-input>
+                        <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                    </el-form-item>
+                    <!--捐赠图片-->
+                    <el-form-item :prop="code" v-for="code in ['donateUrl']" :label="oldConfigMap?.[code]?.['name']" :key="code">
+                        <div style="display: flex">
+                            <div>
+                                <el-tooltip class="item" effect="dark" content="点击上传" placement="top">
+                                    <el-upload style="display: inline-block"
+                                               drag
+                                               :action="fileUploadUrl"
+                                               :show-file-list="false"
+                                               :on-success="(res, file, fileList) => handleAvatarSuccess(res, code)"
+                                               :before-upload="beforeAvatarUpload">
+                                        <img v-if="configMap[code]" :src="configMap[code]" style="width: 100%;height: 100%" alt="">
+                                        <i v-else class="el-icon-plus avatar-uploader-icon"></i>
+                                    </el-upload>
+                                </el-tooltip>
+                            </div>
+                            <div style="margin-left: 0.5rem;display: block" >
+                                <el-button type="primary" @click="handleFileOpen(code)">图库</el-button>
+                                <el-button v-if="configMap[code]" type="danger" @click="configMap[code] = ''">删除</el-button>
+                                <el-button v-if="configMap[code] !== oldConfigMap?.[code]?.['value']" type="success" @click="updateConfig(code, configMap[code])">保存</el-button>
+                            </div>
+                        </div>
+                    </el-form-item>
+                </el-form>
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            configMap: {},
+            oldConfigMap:{},
+            insertFileCode: 'avatarUrl',
+            testResultVisible: false,
+            testResult: [],
+            rules: {
+                avatarUrl: [{required: true, message: '头像必填', trigger: 'blur'}],
+                webTitle: [{required: true, max: 50, message: '标题必填', trigger: 'blur'}],
+                webDescription: [{max: 200, message: '文字长度不能超过200', trigger: 'blur'}],
+                webHost: [
+                    {required: true, max: 50, message: '域名必填', trigger: 'blur'},
+                    {pattern: /^https?:\/\/(localhost|[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,})(:\d{1,5})?$/,
+                        message: '格式必须是http://或https://,不能携带路径参数', trigger: 'blur'}
+                ],
+                showTextTitle: [{max: 100, message: '文字长度不能超过100', trigger: 'blur'}],
+                showTextDesc: [{max: 200, message: '文字长度不能超过200', trigger: 'blur'}],
+                adminPath: [
+                    {required: true, max: 10, min: 2,message: '路径必填', trigger: 'blur'},
+                    {pattern: /^\/\w{2,10}$/, message: '格式必须是\'/\'+\'2-10位字母，数字或_\'', trigger: 'blur'}
+                ],
+                aboutRelArticleId: [
+                    {max: 5, min: 1,message: '路径必填', trigger: 'blur'},
+                    {pattern: /^\d{1,5}$/, message: '格式必须是1-5位数字', trigger: 'blur'}
+                ],
+                webStartTime: {pattern: /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/, message: '格式必须是yyyy-MM-dd HH:mm:ss', trigger: 'blur'},
+                copyrightYear: {pattern: /^(\d{4})(?:-(\d{4}))?$/, message: '格式必须是2022或2022-2023', trigger: 'blur'},
+                footerICP: [{max: 30, message: '备案号长度不能超过30', trigger: 'blur'}],
+                footerPolice: [{max: 30, message: '备案号长度不能超过30', trigger: 'blur'}],
+                ipLocationApi: [{required: true ,max: 100, message: '接口地址长度不能超过100', trigger: 'blur'}],
+                ipLocationApiTemplate: [{required: true ,max: 1000, message: '接口地址长度不能超过100', trigger: 'blur'}],
+                webStats: [{max: 1000, message: '站长统计长度不能超过1000', trigger: 'blur'}]
+            },
+        },
+        created() {
+            this.getConfigList();
+        },
+        mounted() {
+        },
+        methods: {
+            // 测试api
+            testApi(){
+                this.$post("setting/iptest").then(re => {
+                    if (re.data && re.data.code === 200) {
+                        this.testResultVisible = true;
+                        this.testResult = re.data.data;
+                        this.testResult.forEach(item => {
+                            item.result = JSON.stringify(JSON.parse(item.result), null, 2);
+                            item.convertResult = JSON.stringify(item.convertResult, null, 2);
+                        });
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                })
+            },
+            // 获取配置项
+            getConfigList() {
+                this.$post("setting/config").then(re => {
+                    if (re.data && re.data.code === 200) {
+                        this.configMap = Object.fromEntries(re.data.data.map(item => [item.code, item.value]));
+                        this.oldConfigMap = Object.fromEntries(re.data.data.map(item => [item.code, item]));
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                })
+            },
+            // 更新配置项
+            updateConfig(code,value) {
+                this.$refs['sysConfigForm'].validate((valid) => {
+                    if (valid) {
+                        this.$post("setting/update", {configCode: code, configValue: value}).then(re => {
+                            if (re.data && re.data.code === 200) {
+                                if(code === 'adminPath'){
+                                    window.location.href = window.location.pathname.replace(this.adminPath,value)
+                                    return;
+                                }
+                                this.oldConfigMap[code]['value'] = value;
+                                this.successMsg("更新成功");
+                            } else {
+                                this.errorMsg(re.data.msg);
+                            }
+                        })
+                    }
+                })
+            },
+            // 取消修改
+            cancelEdit(code) {
+                this.configMap[code] = this.oldConfigMap[code]['value'];
+            },
+            // 打开素材库重写
+            handleFileOpen(code) {
+                this.insertFileCode = code;
+                this.filePageQuery.visible = true;
+                this.handleFilePageGet();
+
+            },
+            // 插入图片重写
+            insertFile(file){
+                this.configMap[this.insertFileCode] = this.fileUrlPrefix + file.id;
+                this.filePageQuery.visible = false;
+            },
+            // 头像上传成功重写
+            handleAvatarSuccess(res,code) {
+                if (res.data) {
+                    this.configMap[code] = this.fileUrlPrefix + res.data.id;
+                } else {
+                    this.errorMsg(res.msg)
+                }
+            }
+        }
+    })
+</script>
+
+</body>
+</html>

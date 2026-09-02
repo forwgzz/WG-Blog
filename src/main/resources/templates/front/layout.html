@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>前台模板</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <!-- 公共css-->
+    <th:block th:fragment="base-css">
+    <link rel="stylesheet" th:href="@{/public/css/style.css}">
+    <link rel="stylesheet" th:href="@{/public/element/index.css}">
+    <link rel="stylesheet" th:href="@{/public/css/my-icon.css}">
+    <link rel="stylesheet" th:href="@{/public/css/front.css}">
+    <style>
+        /* vue防闪烁 */
+        [v-cloak] {
+            display: none !important;
+        }
+    </style>
+    <th:block th:utext="${base?.webStats ?: ''}"></th:block>
+    </th:block>
+
+</head>
+<body>
+<!-- 顶部 -->
+<header th:fragment="header" class="header" id="header" :class="{'header-back-color': headerColor,'header-hidden': headerHidden}">
+    <!--图片预览-->
+    <el-image id="image-preview" style="display: none;" :src="imagePreview.url"
+              :preview-src-list="imagePreview.urls" :initial-index="imagePreview.index"></el-image>
+    <!-- 顶部左侧 -->
+    <div class="header-left">
+        <!-- 手机端折叠图标 -->
+        <i v-if="isMobile" class="el-icon-s-fold blue-hover" @click="handleMobileLeftDrawer"></i>
+        <a v-else class="colorful-text blue-hover" href="/" th:text="${base.webTitle}"></a>
+    </div>
+    <!-- 中间 -->
+    <div class="header-center">
+        <a v-if="isMobile" class="blue-hover colorful-text" href="/" th:text="${base.webTitle}"></a>
+        <nav v-else class="nav-links">
+            <a href="/" class="blue-hover"><i class="el-icon-s-home"></i> 首页</a>
+            <el-dropdown trigger="hover" class="category-dropdown">
+                <span class="el-dropdown-link blue-hover">
+                    <i class="el-icon-collection"></i> 分类
+                </span>
+                <el-dropdown-menu class="category-dropdown-menu" slot="dropdown">
+                    <el-dropdown-item th:each="category : ${stats?.categoryList}" >
+                        <a style="width: 100%;display: block" th:href="'/category/'+${category.value}" th:text="${category.label}"></a>
+                    </el-dropdown-item>
+                </el-dropdown-menu>
+            </el-dropdown>
+            <a href="/archive" class="blue-hover"><i class="el-icon-data-analysis"></i> 归档</a>
+            <a href="/link" class="blue-hover"><i class="el-icon-s-promotion"></i> 友链</a>
+            <a href="/about" class="blue-hover"><i class="el-icon-reading"></i> 关于</a>
+        </nav>
+    </div>
+    <!-- 顶部右侧 -->
+    <div class="header-right">
+        <div v-if="isMobile" class="blue-hover"  @click="handleMobileRightDrawer">
+            <i class="el-icon-zoom-in" ></i>
+        </div>
+        <div class="search-input" :class="searchInputVisible ? 'expanded':'collapsed'">
+            <el-input v-model="searchValue" placeholder="输入搜索内容..." prefix-icon="el-icon-search" clearable @keyup.enter.native="handledSearch"></el-input>
+        </div>
+        <div v-if="!isMobile" @click="handleSearchInput" class="blue-hover">
+            <i :class="searchInputVisible ? 'el-icon-circle-close' : 'el-icon-search'"></i>
+        </div>
+    </div>
+    <!-- 手机端左侧抽屉 -->
+    <el-drawer append-to-body :visible.sync="mobileLeftDrawerVisible" direction="ltr" size="300px" :show-close="false" :with-header="false">
+        <div>
+            <div th:replace="~{front/layout::aside-user}"></div>
+            <div th:replace="~{front/layout::aside-archive}"></div>
+        </div>
+    </el-drawer>
+    <!-- 手机端右侧抽屉 -->
+    <el-drawer append-to-body :visible.sync="mobileRightDrawerVisible" direction="rtl" size="300px" :show-close="false" :with-header="false">
+        <div v-if="isMobile" class="mobile-nav-links">
+            <div>
+                <el-input v-model="searchValue" placeholder="输入搜索内容..." prefix-icon="el-icon-search" clearable @keyup.enter.native="handledSearch"></el-input>
+            </div>
+            <div class="mobile-nav-title">
+                <a class="blue-hover" href="/"><i class="el-icon-s-home"></i> 首页</a>
+            </div>
+            <div class="mobile-nav-title">
+                <i class="el-icon-collection"></i> 分类
+                <ul class="mobile-nav-list">
+                    <li th:each="category : ${stats?.categoryList}">
+                        <a style="width: 100%;display: block" class="blue-hover" th:href="'/category/'+${category.value}" th:text="${category.label}"></a>
+                    </li>
+                </ul>
+            </div>
+            <div class="mobile-nav-title">
+                <a class="blue-hover" href="/archive"><i class="el-icon-data-analysis"></i> 归档</a>
+            </div>
+            <div class="mobile-nav-title">
+                <a class="blue-hover" href="/link"><i class="el-icon-s-promotion"></i> 友链</a>
+            </div>
+            <div class="mobile-nav-title">
+                <a class="blue-hover" href="/about"><i class="el-icon-reading"></i> 关于</a>
+            </div>
+        </div>
+    </el-drawer>
+</header>
+<!-- 逐显文字 -->
+<div th:fragment="show-text" class="show-text">
+    <div class="show-text-title colorful-text" id="show-text-title" th:data-text="${base?.showTextTitle?:''}"></div>
+    <div class="show-text-desc colorful-text" id="show-text-desc" th:data-text="${base?.showTextDesc?:''}"></div>
+</div>
+<!-- 侧边栏 -->
+<aside th:fragment="aside" id="aside" v-if="!isMobile"  class="aside" :class="{'aside-offset' : !headerHidden}">
+    <!-- 用户卡片 -->
+    <div th:fragment="aside-user" class="aside-card">
+        <!--头像-->
+        <div class="user-avatar">
+            <a href="/">
+                <el-avatar class="avatar" th:src="${author?.userAvatar?:''}">头像</el-avatar>
+            </a>
+            <div th:text="${author?.userName?:'WG'}" style="margin-top: 5px"></div>
+            <div class="sns-links">
+                <a class="blue-hover" th:href="'mailto:' + ${author?.userEmail}">
+                    <i class="mi mi-email"></i>
+                </a>
+                <a class="blue-hover" target="_blank" href="https://gitee.com/forwgzz">
+                    <i class="mi mi-gitee"></i>
+                </a>
+                <a class="blue-hover" target="_blank" href="https://github.com/forwgzz">
+                    <i class="mi mi-github"></i>
+                </a>
+            </div>
+        </div>
+        <el-divider></el-divider>
+        <!--统计-->
+        <div class="statistic">
+            <el-row :gutter="5">
+                <el-col :span="8">
+                    <a class="blue-hover" href="/">
+                        <el-statistic th::value="${stats.articleTotal}" title="文章"></el-statistic>
+                    </a>
+                </el-col>
+                <el-col :span="8">
+                    <el-statistic th::value="${stats.categoryTotal}" title="分类"  @click.native="categoryDialogVisible = true"></el-statistic>
+                </el-col>
+                <el-col :span="8">
+                    <el-statistic th::value="${stats.tagTotal}" title="标签" @click.native="tagDialogVisible = true"></el-statistic>
+                </el-col>
+            </el-row>
+        </div>
+    </div>
+    <!-- 目录 -->
+    <div  th:fragment="aside-catalog" class="aside-card" th:if="${article != null && article.id != 0 && !#strings.isEmpty(article.articleCatalog)}">
+        <div class="aside-card-top"><i class="el-icon-notebook-2"></i> 目录</div>
+        <el-divider></el-divider>
+        <div class="catalog-content" th:if="${article.articleCatalog}" th:utext="${article.articleCatalog}"></div>
+    </div>
+    <!-- 归档 -->
+    <div th:fragment="aside-archive" class="aside-card">
+        <div class="aside-card-top">
+            <a class="blue-hover" href="/archive">
+                <i class="el-icon-data-analysis"></i> 归档
+            </a>
+        </div>
+        <el-divider></el-divider>
+        <div class="archive-content">
+            <div class="archive-item" th:each="archive : ${stats?.archiveList}" th:data-month="${archive.yearMonth}" @click="archiveClick($event.currentTarget.dataset.month)">
+                <div class="title" th:text="${archive.yearMonth}"></div>
+                <div class="count" th:text="${archive.count}"></div>
+                <div class="unit">篇文章</div>
+            </div>
+            <div th:if="${stats?.archiveList.size % 2 == 1}" class="archive-item">
+                <div class="title"></div>
+                <div class="count"></div>
+                <div class="unit"></div>
+            </div>
+            <div class="archive-item">
+                <div class="title">总访客数</div>
+                <div class="count" th:text="${stats?.visitorTotal}"></div>
+                <div class="unit">人</div>
+            </div>
+            <div class="archive-item">
+                <div class="title">总访问量</div>
+                <div class="count" th:text="${stats?.viewTotal}"></div>
+                <div class="unit">次</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 分类弹窗 -->
+    <el-dialog append-to-body title="分类" :visible.sync="categoryDialogVisible" width="50%" center>
+        <el-badge th:each="category : ${stats?.categoryList}" type="primary" th::value="${category.number}"  style="margin: 8px;">
+            <a th:href="'/category/'+${category.value}">
+                <el-button plain type="primary" round size="small">[[${category.label}]]</el-button>
+            </a>
+        </el-badge>
+    </el-dialog>
+    <!-- 标签弹窗 -->
+    <el-dialog append-to-body title="标签" :visible.sync="tagDialogVisible" width="50%" center>
+        <el-badge th:each="tag : ${stats?.tagList}" type="primary" th::value="${tag.number}" style="margin: 8px;">
+            <a th:href="'/tag/'+${tag.value}">
+                <el-button plain round size="small">[[${tag.label}]]</el-button>
+            </a>
+        </el-badge>
+    </el-dialog>
+</aside>
+<!-- 评论 -->
+<div th:fragment="comment" th:if="${article.commentOpen}" >
+    <!-- 用户信息占位 -->
+    <div style="display: none">
+        <div id="userName" th:data-target="${base.userInfo?.userName}"></div>
+        <div id="userEmail" th:data-target="${base.userInfo?.userEmail}"></div>
+        <!-- 0为友链 -->
+        <div id="articleId" th:data-target="${article?.id?:0}"></div>
+    </div>
+    <!--发布评论-->
+    <el-dialog width="70%" :close-on-click-modal="false"
+               :title="toComment?'回复评论':'发布评论'"
+               :visible.sync="commentDialog.visible">
+        <!-- 回复评论对象  -->
+        <div class="comment-to-dialog" v-if="toComment">
+            <div class="comment-avatar">
+                <el-avatar :src="toComment.userAvatar"
+                           :style="{ backgroundColor: toComment.userAvatarColor?toComment.userAvatarColor:getCommentUserAvatarColor(toComment), color: '#fff' }"
+                >
+                    {{toComment.userName[0]}}
+                </el-avatar>
+            </div>
+            <div class="comment-text">
+                <div class="comment-user-name">
+                    <span>{{toComment.userName}}</span>
+                </div>
+                <div class="comment-content">
+                    <span class="pre-line">{{toComment.commentContent}}</span>
+                </div>
+                <div class="comment-more">
+                    <span>{{toComment.createTime.slice(0, 16)}}</span>
+                    <span>{{toComment.userIpAddr}}</span>
+                    <span class="blue-hover" @click="closeCommentDialog">取消回复</span>
+                </div>
+            </div>
+        </div>
+        <!-- 发表评论 -->
+        <el-form :model="commentDialog"  :rules="rules" ref="commentDialog">
+            <el-form-item prop="userName">
+                <el-input prefix-icon="el-icon-user" name="userName" placeholder="昵称" v-model="commentDialog.userName"
+                          autocomplete="on" show-word-limit maxlength="10"></el-input>
+            </el-form-item>
+            <el-form-item prop="userEmail">
+                <el-input prefix-icon="el-icon-message" name="userEmail" placeholder="邮箱" v-model="commentDialog.userEmail"
+                          autocomplete="on" show-word-limit maxlength="50">
+                </el-input>
+            </el-form-item>
+            <el-form-item prop="captcha">
+                <el-popover placement="top" trigger="hover">
+                    <img :src="commentDialog.captchaUrl" alt="" @click="refreshCaptcha">
+                    <el-input slot="reference" prefix-icon="el-icon-key" placeholder="验证码" v-model="commentDialog.captcha" autocomplete="off"></el-input>
+                </el-popover>
+            </el-form-item>
+            <el-form-item prop="commentContent">
+                <el-input placeholder="评论内容" type="textarea" v-model="commentDialog.commentContent"
+                          autocomplete="off" show-word-limit maxlength="500" :autosize="{ minRows: 4, maxRows: 7 }"
+                ></el-input>
+            </el-form-item>
+            <div style="display: flex;justify-content: space-between;align-items: center;vertical-align: top;">
+                <div style="height: 40px">
+                    <span>邮件通知 </span>
+                    <el-switch v-model="commentDialog.emailNotify" :active-value="1" :inactive-value="0"></el-switch>
+                </div>
+                <el-form-item style="text-align: right">
+                    <el-button style="width: 100px" type="success" @click="addComment">确认</el-button>
+                </el-form-item>
+            </div>
+        </el-form>
+    </el-dialog>
+    <!--评论-->
+    <div id="comment-show" class="main-card">
+        <div style="padding: 15px;font-size: 20px;display: flex;justify-content: space-between;">
+            <div>
+                <i class="el-icon-chat-dot-round"></i><span> 评论</span>
+            </div>
+            <div>
+                <i @click="openCommentDialog(null)" class="el-icon-circle-plus-outline blue-hover"></i>
+            </div>
+        </div>
+        <div style="min-height: 50px">
+            <div style="text-align: center" v-if="commentPage.total <=0">
+                <span>暂无评论,点击右上角 <i class="el-icon-circle-plus-outline"></i> 发布</span>
+            </div>
+            <div v-for="comment in commentPage.records">
+                <div class="comment-root-item" :class="[commentIdIndex === comment.id?'comment-to':'']">
+                    <div class="comment-avatar">
+                        <el-avatar :src="comment.userAvatar"
+                                   :style="{ backgroundColor: comment.userAvatarColor?comment.userAvatarColor:getCommentUserAvatarColor(comment), color: '#fff' }">
+                            {{comment.userName[0]}}
+                        </el-avatar>
+                    </div>
+                    <div class="comment-texts">
+                        <div class="comment-text">
+                            <div class="comment-user-name">
+                                <span>{{comment.userName}}</span>
+                                <el-tag size="mini" v-if="comment.sort" type="warning">置顶</el-tag>
+                            </div>
+                            <div class="comment-content">
+                                <span class="pre-line">{{comment.commentContent}}</span>
+                            </div>
+                            <div class="comment-more">
+                                <span>{{comment.createTime.slice(0, 16)}}</span>
+                                <span>{{comment.userIpAddr}}</span>
+                                <span class="blue-hover" @click="openCommentDialog(comment)">回复</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div v-if="comment.childList.length>0">
+                    <div class="comment-child-item" v-for="child in comment.childList" :class="[commentIdIndex === child.id?'comment-to':'']">
+                        <div class="comment-avatar">
+                            <el-avatar :src="child.userAvatar"
+                                       :style="{ backgroundColor: child.userAvatarColor?child.userAvatarColor:getCommentUserAvatarColor(child), color: '#fff' }">
+                                {{child.userName[0]}}
+                            </el-avatar>
+                        </div>
+                        <div class="comment-text">
+                            <div class="comment-user-name">
+                                <span>{{child.userName}}</span>
+                                <i class="el-icon-right"></i>
+                                <span style="cursor: pointer;" @mouseenter="commentIdIndex = child.toCommentId"
+                                      @mouseleave="commentIdIndex = 0">{{child.toUserName}}</span>
+                                <el-tag size="mini" v-if="child.sort" type="warning">置顶</el-tag>
+                            </div>
+                            <div class="comment-content">
+                                <span class="pre-line">{{child.commentContent}}</span>
+                            </div>
+                            <div class="comment-more">
+                                <span>{{child.createTime.slice(0, 16)}}</span>
+                                <span>{{child.userIpAddr}}</span>
+                                <span class="blue-hover" @click="openCommentDialog(child)">回复</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--页码-->
+        <div class="pagination" v-if="commentPage.pages > 1">
+            <i v-if="commentPage.start!==1" @click="getCommentPage(1)" class="el-icon-d-arrow-left"></i>
+            <i v-if="commentPage.current!==1" @click="getCommentPage(globalState.commentPage.current - 1)" class="el-icon-arrow-left"></i>
+
+            <i v-for="page in commentPage.range"
+               :class="{active : commentPage.current === page}"
+               @click="getCommentPage(page)">{{page}}</i>
+
+            <i v-if="commentPage.current !== globalState.commentPage.pages" @click="getCommentPage(globalState.commentPage.current+1)" class="el-icon-arrow-right"></i>
+            <i v-if="commentPage.end !== globalState.commentPage.pages" @click="getCommentPage(globalState.commentPage.pages)" class="el-icon-d-arrow-right"></i>
+        </div>
+    </div>
+</div>
+<!-- 底部 -->
+<footer th:fragment="footer" style="padding-bottom: 10px">
+    <div class="footer">
+        <div>
+            <i class="mi mi-copyright"></i><span th:text="${base.copyrightYear}"></span> By <a class="blue-hover" href="/">[[${base.webTitle}]]</a>
+            <span> </span>
+            <a href="https://github.com/forwgzz/wg-blog" target="_blank">
+                <span class="footer-tag"><i class="mi mi-github"></i>wg-blog</span>
+            </a>
+        </div>
+        <div id="run-time" th:alt="${base.webStartTime}">
+            本站已运行 {{webStartTimeFormat}}
+        </div>
+        <div>
+            <a th:if="${!#strings.isEmpty(base?.footerICP)}" href="https://beian.miit.gov.cn/" target="_blank">
+                <span class="footer-tag" th:text="${base.footerICP}"></span>
+            </a>
+            <a th:if="${!#strings.isEmpty(base?.footerPolice)}" href="https://beian.mps.gov.cn/" target="_blank">
+                <span class="footer-tag" th:text="${base.footerPolice}"></span>
+            </a>
+        </div>
+    </div>
+    <el-backtop :visibility-height="100" :right="50" :bottom="100"></el-backtop>
+</footer>
+</body>
+<!-- 公共js -->
+<th:block th:fragment="base-js">
+<script th:src="@{/public/js/vfp.min.js}"></script>
+<script th:src="@{/public/js/vue.min.js}"></script>
+<script th:src="@{/public/js/axios.min.js}"></script>
+<script th:src="@{/public/js/app-utils.js}"></script>
+<script th:src="@{/public/js/front-utils.js}"></script>
+<script th:src="@{/public/element/index.js}"></script>
+</th:block>
+
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [FrontUtilsMixin],
+        data: {
+        },
+        mounted() {
+
+        },
+        methods: {
+
+        }
+    })
+</script>
+</html>

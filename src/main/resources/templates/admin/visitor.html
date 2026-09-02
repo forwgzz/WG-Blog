@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='访客管理'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>
+    <style>
+        .popover-line {
+            width: 350px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}"></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <div class="main-table-top">
+                    <el-popover placement="bottom" width="350" trigger="click">
+                        <el-input class="popover-line" prefix-icon="el-icon-search"
+                                  v-model="pageQuery.userEmail" show-word-limit
+                                  clearable maxlength="30"
+                                  placeholder="搜索邮箱" @keyup.enter.native="handlePageGet"
+                        ></el-input>
+                        <el-input class="popover-line" prefix-icon="el-icon-search"
+                                  v-model="pageQuery.userIp" show-word-limit
+                                  clearable maxlength="40"
+                                  placeholder="搜索IP" @keyup.enter.native="handlePageGet"
+                        ></el-input>
+                        <el-input class="popover-line" prefix-icon="el-icon-search"
+                                  v-model="pageQuery.userAddress"
+                                  show-word-limit clearable maxlength="40"
+                                  placeholder="搜索IP地址" @keyup.enter.native="handlePageGet"
+                        ></el-input>
+                        <el-input class="popover-line" prefix-icon="el-icon-search"
+                                  v-model="pageQuery.browserKey" show-word-limit
+                                  clearable maxlength="40"
+                                  placeholder="搜索浏览器指纹" @keyup.enter.native="handlePageGet"
+                        ></el-input>
+                        <div class="popover-line">
+                            <span>浏览器指纹 </span>
+                            <el-checkbox border v-model="pageQuery.browserKeyBlank === 1" @change="checkBrowserKeyBlank(1)">
+                                空值
+                            </el-checkbox>
+                            <el-checkbox border v-model="pageQuery.browserKeyBlank === 0" @change="checkBrowserKeyBlank(0)" >
+                                非空
+                            </el-checkbox>
+                        </div>
+                        <el-input class="popover-line" prefix-icon="el-icon-search"
+                                  v-model="pageQuery.browserAgent" show-word-limit
+                                  clearable maxlength="40"
+                                  placeholder="搜索浏览器头" @keyup.enter.native="handlePageGet"
+                        ></el-input>
+                        <el-input class="popover-line" prefix-icon="el-icon-search"
+                                  v-model="pageQuery.accessPath" show-word-limit
+                                  clearable maxlength="40"
+                                  placeholder="搜索访问路径" @keyup.enter.native="handlePageGet"
+                        ></el-input>
+                        <el-input class="popover-line" prefix-icon="el-icon-search"
+                                  v-model="pageQuery.traceId" show-word-limit
+                                  clearable maxlength="40"
+                                  placeholder="搜索跟踪ID" @keyup.enter.native="handlePageGet"
+                        ></el-input>
+                        <el-date-picker class="popover-line"
+                                        :default-time="['00:00:00', '23:59:59']"
+                                        v-model="pageQuery.dateRange"
+                                        type="daterange"
+                                        value-format="yyyy-MM-dd HH:mm:ss"
+                                        range-separator="至"
+                                        start-placeholder="开始日期"
+                                        end-placeholder="结束日期">
+                        </el-date-picker>
+                        <el-button class="popover-line" @click="clearForm">清空</el-button>
+                        <el-input slot="reference" reference prefix-icon="el-icon-search" v-model="pageQuery.userName"
+                                  show-word-limit clearable maxlength="30"
+                                  placeholder="搜索用户名" @keyup.enter.native="handlePageGet"
+                                  style="width: 350px;margin-right: 5px"></el-input>
+                    </el-popover>
+
+                    <el-button type="primary" icon="el-icon-search" @click="handlePageGet" style="margin-right: 10px">
+                        搜索
+                    </el-button>
+                    <!--删除-->
+                    <el-button type="danger" @click="handleDelete(null)" icon="el-icon-delete">删除</el-button>
+                </div>
+                <!--表格-->
+                <div class="main-table-div">
+                    <el-table :data="pageData.records" height="100%" max-height="100%"
+                              border @selection-change="handleSelectionChange" highlight-current-row>
+                        <el-table-column type="selection" prop="id"></el-table-column>
+                        <el-table-column prop="userName" label="用户名称/邮箱" min-width="200px">
+                            <template #default="scope">
+                                <div>
+                                    <span>{{ scope.row.userName }}</span>
+                                    <el-tag style="float: right" size="mini" v-if="scope.row.userType===1" type="warning">
+                                        管理
+                                    </el-tag>
+                                </div>
+                                <div>{{ scope.row.userEmail }}</div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="accessPath" label="访问路径/上次路径" min-width="250px">
+                            <template #default="scope">
+                                <div>{{ scope.row.accessPath }}
+                                    <el-tag style="float: right" type="info" size="mini" v-if="scope.row.accessMethod!==null">
+                                        {{ scope.row.accessMethod }}
+                                    </el-tag>
+                                </div>
+                                <div>{{ scope.row.lastAccessPath }}</div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="userIp" label="访问IP/地址" min-width="170px">
+                            <template #default="scope">
+                                <div>{{ scope.row.userIp }}</div>
+                                <div>{{ scope.row.userAddress }}</div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="browserKey" label="浏览器指纹/头" min-width="200px">
+                            <template #default="scope">
+                                <div><el-tag size="mini" v-if="scope.row.browserKey!==null && scope.row.browserKey!==''">
+                                    {{ scope.row.browserKey }}
+                                </el-tag></div>
+                                <div>{{ scope.row.browserAgent }}</div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="traceId" label="跟踪ID" min-width="170px"></el-table-column>
+                        <el-table-column prop="accessTime" label="访问时间" min-width="170px"></el-table-column>
+                        <el-table-column fixed="right" min-width="80px" label="操作">
+                            <template #default="scope">
+                                <el-button type="danger" size="mini" @click="handleDelete(scope.row)">
+                                    删除
+                                </el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+                <div class="main-table-bottom">
+                    <!--页码-->
+                    <el-pagination background
+                                   :page-sizes="[10, 20, 50, 100]"
+                                   :current-page="pageData.current"
+                                   :page-size="pageData.size"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   :total="pageData.total"
+                                   @size-change="handleSizeChange"
+                                   @current-change="handleCurrentChange">
+                    </el-pagination>
+                </div>
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            pageQuery: {
+                userName: null,
+                userType: null,
+                userEmail: null,
+                userIp: null,
+                userAddress: null,
+                browserKey: null,
+                startTime: null,
+                endTime: null,
+                dateRange: null,
+                browserKeyBlank:null,
+                traceId: null,
+                browserAgent: null,
+                accessPath: null,
+
+            }
+        },
+        mounted() {
+            this.handlePageGet();
+        },
+        methods: {
+            // 指纹空值 勾选
+            checkBrowserKeyBlank(val) {
+                if(this.pageQuery.browserKeyBlank === val){
+                    this.pageQuery.browserKeyBlank = null;
+                }else {
+                    this.pageQuery.browserKeyBlank = val;
+                }
+            },
+            // 清空表单
+            clearForm() {
+                this.pageQuery.userName = null;
+                this.pageQuery.userType = null;
+                this.pageQuery.userEmail = null;
+                this.pageQuery.userIp = null;
+                this.pageQuery.userAddress = null;
+                this.pageQuery.browserKey = null;
+                this.pageQuery.dateRange = null;
+                this.pageQuery.browserKeyBlank = null;
+                this.pageQuery.traceId = null;
+                this.pageQuery.browserAgent = null;
+                this.pageQuery.accessPath = null;
+            },
+        }
+    })
+</script>
+</body>
+</html>

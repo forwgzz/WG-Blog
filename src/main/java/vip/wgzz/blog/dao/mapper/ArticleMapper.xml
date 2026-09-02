@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="vip.wgzz.blog.dao.ArticleDao">
+
+    <!--文章 一对多 标签-->
+    <resultMap id="ArticleWithTagsResultMap" type="vip.wgzz.blog.model.po.ArticlePO">
+        <id property="id" column="id"/>
+        <result property="articleTitle" column="article_title"/>
+        <result property="articleAbstract" column="article_abstract"/>
+        <result property="articleCover" column="article_cover"/>
+        <result property="articleContent" column="article_content"/>
+        <result property="articleCatalog" column="article_catalog"/>
+        <result property="articleMarkdown" column="article_markdown"/>
+        <result property="wordCount" column="word_count"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="commentCount" column="comment_count"/>
+        <result property="commentOpen" column="comment_open"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="articleStatus" column="article_status"/>
+        <result property="articleType" column="article_type"/>
+        <result property="sort" column="sort"/>
+        <result property="dataStatus" column="data_status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <!--标签集合映射 -->
+        <collection property="tagList"
+                    ofType="vip.wgzz.blog.model.po.TagPO"
+                    select="getTagsByArticleId"
+                    column="id"/>
+    </resultMap>
+
+    <select id="getTagsByArticleId" resultType="vip.wgzz.blog.model.po.TagPO">
+        SELECT t.id, t.tag_name
+        FROM tb_article_tag_rel atr
+                 LEFT JOIN tb_tag t ON atr.tag_id = t.id
+        WHERE atr.article_id = #{id}
+    </select>
+
+    <!-- 文章带标签的连表sql -->
+    <sql id="articleBase">
+        SELECT
+            a.id,
+            a.article_title,
+            a.article_abstract,
+            a.article_cover,
+            a.article_content,
+            a.article_catalog,
+            a.article_markdown,
+            a.word_count,
+            a.view_count,
+            a.comment_count,
+            a.comment_open,
+            a.category_id,
+            a.category_name,
+            a.article_status,
+            a.article_type,
+            a.sort,
+            a.data_status,
+            a.create_time,
+            a.update_time
+        FROM tb_article a
+    </sql>
+
+    <!-- 分页 -->
+    <select id="getArticleWithTags" resultMap="ArticleWithTagsResultMap">
+        <include refid="articleBase"/>
+        <where>
+            <if test="article.id != null">
+                AND a.id = #{article.id}
+            </if>
+            <if test="article.articleTitle != null and article.articleTitle != ''">
+                AND a.article_title LIKE CONCAT('%', #{article.articleTitle}, '%')
+            </if>
+            <if test="article.articleStatus != null">
+                AND a.article_status = #{article.articleStatus}
+            </if>
+            <if test="article.dataStatus != null">
+                AND a.data_status = #{article.dataStatus}
+            </if>
+            <if test="article.categoryId != null">
+                AND a.category_id = #{article.categoryId}
+            </if>
+            <if test="article.tagId != null">
+                AND EXISTS
+                (SELECT 1 FROM tb_article_tag_rel atr
+                WHERE atr.article_id = a.id AND atr.tag_id = #{article.tagId})
+            </if>
+        </where>
+        ORDER BY a.sort DESC, a.id DESC
+    </select>
+
+    <!-- id查询 -->
+    <select id="getArticleWithTagsById" resultMap="ArticleWithTagsResultMap">
+        <include refid="articleBase"/>
+        where a.id = #{article.id}
+    </select>
+
+    <!--归档信息（取前6个月）-->
+    <select id="getArchiveInfo" resultType="vip.wgzz.blog.model.bo.ArchiveCard">
+        SELECT
+            DATE_FORMAT(create_time, '%Y年%m月') AS yearMonth,
+            COUNT(*) AS count
+        FROM tb_article
+        WHERE article_status = 1 AND data_status = 1
+        GROUP BY DATE_FORMAT(create_time, '%Y年%m月')
+        ORDER BY yearMonth DESC
+        LIMIT 6
+    </select>
+
+    <!--发布文章列表-->
+    <select id="getPublishArticleWithTagsList" resultMap="ArticleWithTagsResultMap">
+        <include refid="articleBase"/>
+        where a.article_status = 1 AND a.data_status = 1
+        ORDER BY a.sort DESC, a.create_time DESC
+    </select>
+
+    <!-- 更新文章评论数量 -->
+    <update id="updateCommentCountByIds">
+        UPDATE tb_article
+        SET comment_count = (
+            SELECT COUNT(*)
+            FROM tb_comment
+            WHERE article_id = tb_article.id
+            AND comment_status = 1
+            AND data_status = 1
+        )
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+</mapper>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${(meta?.title?:'首页') + (' | ' + base.webTitle)}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="keywords" th:content="${meta?.keyword?:(base.webTitle)}">
+    <meta name="description" th:content="${meta?.description?:(base.webDescription)}">
+    <meta name="author" th:content="${author.userName}"/>
+    <meta th:if="${currentPage}" name="robots" content="noindex, follow">
+    <th:block th:replace="~{front/layout::base-css}"></th:block>
+    <style>
+        /* 高亮样式 */
+        mark.search-highlight {
+            background-color: #ffc002;
+            color: #303133;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <header th:replace="~{front/layout::header}"></header>
+    <div th:replace="~{front/layout::show-text}"></div>
+    <div class="middle-container">
+        <aside th:replace="~{front/layout::aside}"></aside>
+        <main id="main" class="main">
+            <div class="main-card main-title" th:if="${meta?.title}">
+                <span th:text="${meta?.title}"></span>
+            </div>
+            <!--无数据-->
+            <div class="main-card no-data"  th:if="${page.records.size()==0}">
+                <span class="article-title">暂无内容</span>
+            </div>
+            <div id="article-list">
+                <div class="main-card article-card" th:each="article:${page.records}"
+                     th:style="${#strings.isEmpty(article.articleCover)?'':'background-image:url('+ article.articleCover + ')'}">
+                    <!-- 封面图透视展位 -->
+                    <a th:if="${!#strings.isEmpty(article.articleCover)}" th:href="'/article/'+${article.id}" class="article-card-cover"></a>
+                    <div class="article-card-info" th:style="${#strings.isEmpty(article.articleCover)?'border-radius: 1.5rem;background:none':''}">
+                        <a th:href="'/article/'+${article.id}">
+                            <!--标题-->
+                            <div>
+                                <span style="font-size: 24px" th:utext="${article.articleTitle}"></span> <el-tag size="mini" th:if="${article.sort}" type="warning">置顶</el-tag>
+                            </div>
+                            <!--摘要-->
+                            <span th:utext="${article.articleAbstract}"></span>
+                        </a>
+                        <div class="article-card--more">
+                            <div class="article-card-tags">
+                                <i class="el-icon-collection"></i>
+                                <span class="common-tag category-tag">
+                                <a th:href="'/category/'+${article.categoryId}" th:text="${article.categoryName}"></a>
+                            </span>
+                                <th:block th:if="${article.tagList != null && article.tagList.size > 0}">
+                                    <i class="el-icon-collection-tag" ></i>
+                                    <span th:each="tag:${article.tagList}" class="common-tag">
+                                    <a th:href="'/tag/'+${tag.id}" th:text="${tag.tagName}"/>
+                                </span>
+                                </th:block>
+                            </div>
+                            <div class="article-card-time">
+                                <i class="el-icon-date"></i><span> [[${#temporals.format(article?.createTime, 'yyyy-MM-dd HH:mm')}]]</span>
+                                <i class="el-icon-document"></i><span> [[${article?.wordCount}]]</span>
+                                <i class="el-icon-view"></i><span> [[${article?.viewCount}]]</span>
+                                <i class="el-icon-chat-dot-round"></i><span> [[${article?.commentOpen == 1 ? article?.commentCount : 0}]]</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!--文章分页-->
+            <div class="pagination" th:if="${page.pages > 1}">
+                <th:block
+                        th:with="start=${page.current + 4 > page.pages ? (page.pages - 4 > 0 ?page.pages - 4:1) : (page.current - 2 > 0 ? page.current - 2 : 1)},
+                    end=${start + 4 > page.pages ? page.pages : start + 4}">
+                    <a th:href="'?page=1'"  th:if="${start != 1}"><i class="el-icon-d-arrow-left"></i></a>
+                    <a th:href="${'?page='+(page.current - 1)}" th:if="${page.current != 1}"><i class="el-icon-arrow-left"></i></a>
+                    <a th:each="current : ${#numbers.sequence(start, end)}"
+                       th:href="${'?page='+current}">
+                        <i th:class="${current == page.current?'active':''}">[[${current}]]</i>
+                    </a>
+                    <a th:href="${'?page='+(page.current + 1)}" th:if="${page.current != page.pages}"><i class="el-icon-arrow-right"></i></a>
+                    <a th:href="${'?page='+page.pages}" th:if="${end != page.pages}"><i class="el-icon-d-arrow-right"></i></a>
+                </th:block>
+            </div>
+        </main>
+    </div>
+    <footer th:replace="~{front/layout::footer}"></footer>
+    <el-backtop :visibility-height="100" :right="50" :bottom="100"></el-backtop>
+</div>
+</body>
+<th:block th:replace="~{front/layout::base-js}"></th:block>
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [FrontUtilsMixin],
+        data: {
+        },
+        mounted() {
+            this.initSearchHighlight();
+        },
+        beforeUnmount() {
+        },
+        methods: {
+            // 高亮初始化
+            initSearchHighlight() {
+                let searchStr = null;
+                let contentEl = null;
+                // 搜索词
+                const match = window.location.pathname.match(/\/search\/(.+)/);
+                if (match && decodeURIComponent(match[1])) {
+                    searchStr = decodeURIComponent(match[1]);
+                }
+                // 内容
+                contentEl = document.getElementById("article-list");
+                if (!searchStr || !contentEl) return;
+                this.$nextTick(() => this.highlightText(searchStr, contentEl));
+            },
+            // 高亮文本
+            highlightText(searchStr, contentEl) {
+                if (!searchStr || !contentEl) return;
+                const escapedKeyword = searchStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(escapedKeyword, 'gi');
+                // 创建 TreeWalker 只遍历文本节点
+                const walker = document.createTreeWalker(
+                    contentEl,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                const textNodes = [];
+                while (walker.nextNode()) {
+                    textNodes.push(walker.currentNode);
+                }
+                // 逆序替换避免索引偏移问题
+                textNodes.forEach(node => {
+                    if (regex.test(node.nodeValue)) {
+                        const span = document.createElement('span');
+                        span.innerHTML = node.nodeValue.replace(
+                            regex,
+                            '<mark class="search-highlight">$&</mark>'
+                        );
+                        node.parentNode.replaceChild(span, node);
+                    }
+                });
+            },
+        }
+    })
+</script>
+</html>

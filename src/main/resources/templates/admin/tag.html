@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='标签管理'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}" ></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <div class="main-table-top">
+                    <!--搜索-->
+                    <el-input prefix-icon="el-icon-search" v-model="pageQuery.searchStr" show-word-limit clearable maxlength="20"
+                              placeholder="搜索标签名" @keyup.enter.native="handlePageGet" style="width: 330px;margin-right: 5px"></el-input>
+                    <el-button type="primary" icon="el-icon-search" @click="handlePageGet" style="margin-right: 10px">搜索</el-button>
+                    <!--新增-->
+                    <el-input type="text" prefix-icon="el-icon-circle-plus-outline" show-word-limit maxlength="20" placeholder="新增标签名"
+                              @keyup.enter.native="handleAdd" v-model="tagNameAdd"
+                              style="width: 330px;margin-right: 5px"></el-input>
+                    <el-button type="primary" @click="handleAdd" icon="el-icon-circle-plus-outline">新增</el-button>
+                    <!--删除-->
+                    <el-button type="danger" @click="handleDelete(null)" icon="el-icon-delete">删除</el-button>
+                </div>
+                <!--表格-->
+                <div class="main-table-div">
+                    <el-table :data="pageData.records" height="100%" max-height="100%"
+                              border @selection-change="handleSelectionChange" highlight-current-row>
+                        <el-table-column type="selection" prop="id"></el-table-column>
+                        <el-table-column prop="tagName" label="标签名" min-width="330px">
+                            <template #default="scope">
+                                <template v-if="scope.row.isEdit">
+                                    <el-input v-model="scope.row.tagNameTmp" size="small"
+                                              maxlength="20" minlength="2" @keyup.enter.native="handleSave(scope.row)"></el-input>
+                                </template>
+                                <template v-else>
+                                    <div @dblclick="handleEdit(scope.row)">
+                                        <span>{{scope.row.tagName}}</span>
+                                        <el-tag style="float: right" size="mini" v-if="scope.row.sort!==0"
+                                                closable type="warning" @close="handleCancelTop(scope.row)">
+                                            置顶
+                                        </el-tag>
+                                    </div>
+                                </template>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="createTime" label="添加时间" min-width="170px"></el-table-column>
+                        <el-table-column align="left" fixed="right" min-width="240px" label="操作">
+                            <template #default="scope">
+                                <el-button type="warning" size="mini" @click="handleTop(scope.row)">
+                                    置顶
+                                </el-button>
+                                <template v-if="scope.row.isEdit">
+                                    <el-button type="success" size="mini" @click="handleSave(scope.row)">
+                                        保存
+                                    </el-button>
+                                    <el-button type="info" size="mini" @click="handleCancel(scope.row)">
+                                        取消
+                                    </el-button>
+                                </template>
+                                <template v-else>
+
+                                    <el-button type="primary" size="mini" @click="handleEdit(scope.row)">
+                                        编辑
+                                    </el-button>
+                                    <el-button type="danger" size="mini" @click="handleDelete(scope.row)">
+                                        删除
+                                    </el-button>
+                                </template>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+                <div class="main-table-bottom">
+                    <!--页码-->
+                    <el-pagination background
+                                   :page-sizes="[10, 20, 50, 100]"
+                                   :current-page="pageData.current"
+                                   :page-size="pageData.size"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   :total="pageData.total"
+                                   @size-change="handleSizeChange"
+                                   @current-change="handleCurrentChange">
+                    </el-pagination>
+                </div>
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            tagNameAdd: "",
+            tmpTag: {
+                id: null,
+                tagName: ""
+            },
+        },
+        mounted() {
+            this.handlePageGet();
+        },
+        methods: {
+            // 新增
+            handleAdd() {
+                if (this.isBlank(this.tagNameAdd)) {
+                    this.warnMsg("请先输入标签名称");
+                    return;
+                }
+                if (this._tagAdd) return;
+                this._tagAdd = true;
+                // 新增
+                this.$post("tag/add", {"tagName": this.tagNameAdd}).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        this.tmpTag.id = null;
+                        this.tmpTag.tagName = "";
+                        // 刷新
+                        this.tagNameAdd = null;
+                        this.removeStorage(tagSelectsKey);
+                        this.handlePageGet();
+                        this.successMsg("保存成功");
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                }).catch(e => {
+                    this.errorMsg("新增标签失败:" + e.message);
+                }).finally(() => {
+                    this._tagAdd = false;
+                });
+            },
+            // 开始编辑
+            handleEdit(row) {
+                Vue.set(row, 'isEdit', true);
+                Vue.set(row, 'tagNameTmp', row.tagName);
+            },
+            // 保存修改
+            handleSave(row) {
+                // 未修改 返回
+                if (row.tagName === row.tagNameTmp) {
+                    row.isEdit = false;
+                    return;
+                }
+                // 空值
+                if (this.isBlank(row.tagNameTmp)) {
+                    this.errorMsg("标签名称不能为空");
+                    return;
+                }
+                if (row.tagNameTmp.length < 2) {
+                    this.warnMsg("标签名称最少两个字符");
+                    return;
+                }
+                this.tmpTag.id = row.id;
+                this.tmpTag.tagName = row.tagNameTmp;
+                // 更新
+                this.$post(this.adminPath + "/tag/update", this.tmpTag).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        // 更新表格
+                        row.tagName = this.tmpTag.tagName;
+                        row.isEdit = false;
+
+                        this.tmpTag.id = null;
+                        this.tmpTag.tagName = "";
+                        // 删除缓存
+                        this.removeStorage(tagSelectsKey);
+                        this.successMsg("修改成功");
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                }).catch(e => {
+                    this.errorMsg("修改标签失败:" + e.message);
+                });
+            },
+            // 取消修改
+            handleCancel(row) {
+                row.isEdit = false;
+            }
+        }
+    })
+</script>
+
+</body>
+</html>

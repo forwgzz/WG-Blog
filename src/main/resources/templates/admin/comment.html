@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='评论管理'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>
+    <style>
+
+    </style>
+</head>
+
+<body>
+<div id="app" v-cloak>
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}" ></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <!--详情-->
+                <el-dialog title="详情" :visible.sync="commentDetail.visible" center width="60%"  @close="handleDialogClose">
+                    <h2><a target="_blank" class="link-a blue-hover" :href="commentDetail.commentTree.articleId === 0 ?'/link': articleUrlPrefix + commentDetail.commentTree.articleId">文章：{{commentDetail.commentTree.articleTitle}}</a></h2>
+
+                    <div v-if="commentDetail.commentTree.id" class="comment-root-item" :class="[commentDetail.chooseIndex === commentDetail.commentTree.id ?'comment-to':'']">
+                        <div class="comment-avatar">
+                            <el-avatar :src="commentDetail.commentTree.userAvatar"
+                                       :style="{ backgroundColor: commentDetail.commentTree.userAvatarColor?commentDetail.commentTree.userAvatarColor:getCommentUserAvatarColor(commentDetail.commentTree), color: '#fff' }">
+                                {{commentDetail.commentTree.userName[0]}}
+                            </el-avatar>
+                        </div>
+                        <div class="comment-texts">
+                            <div class="comment-text">
+                                <div class="comment-user-name">
+                                    <span>{{commentDetail.commentTree.userName}}</span>
+                                    <el-tag type="info" size="mini" v-if="commentDetail.commentTree.commentStatus === 0">{{commentDetail.commentTree.commentStatusStr}}</el-tag>
+                                    <el-tag type="success" size="mini" v-else-if="commentDetail.commentTree.commentStatus === 1">{{commentDetail.commentTree.commentStatusStr}}</el-tag>
+                                    <el-tag type="danger" size="mini" v-else>{{commentDetail.commentTree.commentStatusStr}}</el-tag>
+                                    <el-tag  size="mini" v-if="commentDetail.commentTree.id === commentDetail.id">当前</el-tag>
+                                </div>
+                                <div class="comment-content">
+                                    <span class="pre-line">{{commentDetail.commentTree.commentContent}}</span>
+                                </div>
+                                <div class="comment-more">
+                                    <span>{{commentDetail.commentTree.createTime}}</span>
+                                    <span>{{commentDetail.commentTree.userIpAddr}}</span>
+                                    <span class="blue-hover" @click="handleReplyOpen(commentDetail.commentTree)">回复</span>
+
+                                    <span v-if="commentDetail.commentTree.commentStatus !== 1" class="blue-hover" @click="handleCommentStatus(commentDetail.commentTree,1)">审批通过</span>
+                                    <span v-if="commentDetail.commentTree.commentStatus !== 2" class="blue-hover" @click="handleCommentStatus(commentDetail.commentTree,2)">审批拒绝</span>
+                                    <span class="blue-hover" @click="dialogDelete(commentDetail.commentTree)">删除</span>
+                                    <div v-if="commentReply.toCommentId === commentDetail.commentTree.id">
+                                        <el-input type="textarea" maxlength="500" show-word-limit :autosize="{ minRows: 3, maxRows: 6 }" size="mini" v-model="commentReply.commentContent"></el-input>
+                                        <el-button size="mini" @click="handleReplyClose">取消</el-button>
+                                        <el-button size="mini" @click="handleReplySubmit">确认</el-button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comment-child-list" v-if="commentDetail.commentTree.childList.length>0">
+                        <div class="comment-child-item" v-for="child in commentDetail.commentTree.childList" :class="[commentDetail.chooseIndex === child.id?'comment-to':'']">
+                            <div class="comment-avatar">
+                                <el-avatar :src="child.userAvatar"
+                                           :style="{ backgroundColor: child.userAvatarColor?child.userAvatarColor:getCommentUserAvatarColor(child), color: '#fff' }">
+                                    {{child.userName[0]}}
+                                </el-avatar>
+                            </div>
+                            <div class="comment-text">
+                                <div class="comment-user-name">
+                                    <span>{{child.userName}}</span>
+                                    <i class="el-icon-right"></i>
+                                    <span class="blue-hover" style="cursor: pointer;" @mouseenter="commentDetail.chooseIndex = child.toCommentId"
+                                          @mouseleave="commentDetail.chooseIndex = 0">{{child.toUserName}}</span>
+                                    <el-tag type="info" size="mini" v-if="child.commentStatus === 0">{{child.commentStatusStr}}</el-tag>
+                                    <el-tag type="success" size="mini" v-else-if="child.commentStatus === 1">{{child.commentStatusStr}}</el-tag>
+                                    <el-tag type="danger" size="mini" v-else>{{child.commentStatusStr}}</el-tag>
+                                    <el-tag type="warning" size="mini" v-if="child.sort">置顶</el-tag>
+                                    <el-tag  size="mini" v-if="child.id === commentDetail.id">当前</el-tag>
+                                </div>
+                                <div class="comment-content">
+                                    <span class="pre-line">{{child.commentContent}}</span>
+                                </div>
+                                <div class="comment-more">
+                                    <span>{{child.createTime}}</span>
+                                    <span>{{child.userIpAddr}}</span>
+                                    <span class="blue-hover" @click="handleReplyOpen(child)">回复</span>
+                                    <span v-if="child.commentStatus !== 1" class="blue-hover" @click="handleCommentStatus(child,1)">审批通过</span>
+                                    <span v-if="child.commentStatus !== 2" class="blue-hover" @click="handleCommentStatus(child,2)">审批拒绝</span>
+                                    <span class="blue-hover" @click="dialogDelete(child)">删除</span>
+
+                                    <div v-if="commentReply.toCommentId === child.id">
+                                        <el-input type="textarea" maxlength="500" show-word-limit :autosize="{ minRows: 3, maxRows: 6 }"  size="mini" v-model="commentReply.commentContent"></el-input>
+                                        <el-button size="mini" @click="handleReplyClose">取消</el-button>
+                                        <el-button size="mini" @click="handleReplySubmit">确认</el-button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </el-dialog>
+                <div class="main-table-top">
+                    <!--搜索-->
+                    <el-input prefix-icon="el-icon-search" v-model="pageQuery.searchStr" show-word-limit maxlength="20"
+                              placeholder="搜索评论" @keyup.enter.native="handlePageGet" style="width: 330px;margin-right: 5px"></el-input>
+                    <el-button type="primary" icon="el-icon-search" @click="handlePageGet">搜索</el-button>
+
+                    <el-button type="success" @click="handleCommentStatus(null,1)" icon="el-icon-circle-check">
+                        通过
+                    </el-button>
+                    <el-button type="info" @click="handleCommentStatus(null,2)" icon="el-icon-circle-close">
+                        拒绝
+                    </el-button>
+                    <!--删除-->
+                    <el-button type="danger" @click="handleDelete(null)" icon="el-icon-delete">删除</el-button>
+                </div>
+                <!--表格-->
+                <div class="main-table-div">
+                    <el-table :data="pageData.records" height="100%" max-height="100%"
+                              border @selection-change="handleSelectionChange" highlight-current-row>
+                        <el-table-column type="selection" prop="id"></el-table-column>
+                        <el-table-column prop="userName" label="用户昵称" min-width="170px">
+                            <template #default="scope">
+                                <span>{{scope.row.userName}}</span>
+                                <el-tag style="float: right" size="mini" v-if="scope.row.sort!==0"
+                                        closable type="warning" @close="handleCancelTop(scope.row)">
+                                    置顶
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="commentContent" label="评论内容" min-width="330px">
+                            <template #default="scope">
+                                <div><i style="color: red" v-if="scope.row.toCommentId==0" class="el-icon-medal-1"></i><el-tag type="info" size="mini"><i class="el-icon-document"> {{scope.row.articleTitle}}</i></el-tag></div>
+                                <span class="pre-line">{{scope.row.commentContent}}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="userEmail" label="用户邮箱" min-width="210px"></el-table-column>
+                        <el-table-column prop="commentStatusStr" label="状态" min-width="70px">
+                            <template #default="scope">
+                                <el-tag type="info" size="mini" v-if="scope.row.commentStatus === 0">{{scope.row.commentStatusStr}}</el-tag>
+                                <el-tag type="success" size="mini" v-else-if="scope.row.commentStatus === 1">{{scope.row.commentStatusStr}}</el-tag>
+                                <el-tag type="danger" size="mini" v-else>{{scope.row.commentStatusStr}}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="createTime" label="评论时间" min-width="170px"></el-table-column>
+
+                        <el-table-column align="left" fixed="right" min-width="300px" label="操作">
+                            <template #default="scope">
+                                <el-button type="warning" size="mini" @click="handleTop(scope.row)">
+                                    置顶
+                                </el-button>
+                                <el-button type="primary" size="mini" @click="handleDetailOpen(scope.row)">
+                                    详情
+                                </el-button>
+                                <el-button v-if="scope.row.commentStatus !== 1" type="success" size="mini" @click="handleCommentStatus(scope.row,1)">
+                                    通过
+                                </el-button>
+                                <el-button v-else type="info" size="mini" @click="handleCommentStatus(scope.row,2)">
+                                    拒绝
+                                </el-button>
+                                <el-button type="danger" size="mini" @click="handleDelete(scope.row)">
+                                    删除
+                                </el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+                <div class="main-table-bottom">
+                    <!--页码-->
+                    <el-pagination background
+                                   :page-sizes="[10, 20, 50, 100]"
+                                   :current-page="pageData.current"
+                                   :page-size="pageData.size"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   :total="pageData.total"
+                                   @size-change="handleSizeChange"
+                                   @current-change="handleCurrentChange">
+                    </el-pagination>
+                </div>
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            pageQuery: {
+                commentStatus: null,
+            },
+            commentDetail: {
+                visible: false,
+                id: null,
+                articleId: null,
+                chooseIndex: 0,
+                commentStatus: null,
+                commentTree: {
+                    id: null,
+                    userName: "",
+                    childList: [],
+                    rootCommentId:null
+                },
+            },
+            commentReply: {
+                articleId: null,
+                rootCommentId: null,
+                toCommentId: null,
+                commentContent: null
+            }
+        },
+        mounted() {
+            this.handlePageGet();
+        },
+        methods: {
+            // 详情页删除
+            dialogDelete(row) {
+                if(!row.id) return;
+                const ids = [row.id];
+                //确认框
+                this.$confirm('此操作将永久删除数据, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.$post(this.nowPath + "/delete", ids).then(re => {
+                        if (re.data && re.data.code === 200) {
+                            this.successMsg("删除成功");
+                            if(this.commentDetail.id === row.id){
+                                this.handleDialogClose();
+                            }else {
+                                this.commentDetail.commentTree.childList = this.commentDetail.commentTree.childList.filter(item => item.id !== row.id);
+                            }
+                            // 刷新
+                            this.handlePageGet();
+                        } else {
+                            this.errorMsg(re.data.msg);
+                        }
+                    }).catch(e => {
+                        this.errorMsg("删除失败:" + e.message);
+                    });
+                }).catch(() => {
+                    this.infoMsg('已取消删除');
+                });
+            },
+
+            // 关闭回复
+            handleReplyClose(){
+                this.commentReply.toCommentId = null;
+            },
+            // 打开回复
+            handleReplyOpen(comment) {
+                this.commentReply.toCommentId = comment.id;
+                this.commentReply.articleId = comment.articleId;
+                this.commentReply.rootCommentId = comment.rootCommentId;
+                if(comment.rootCommentId ===0){
+                    this.commentReply.rootCommentId = comment.id;
+                }
+                this.commentReply.commentContent = null;
+
+            },
+            // 回复提交
+            handleReplySubmit(){
+                if(this.isBlank(this.commentReply.rootCommentId)){
+                    this.errorMsg("回复内容不能为空");
+                    return;
+                }
+                this.$post("comment/reply", this.commentReply).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        this.handleDetailOpen(this.commentDetail);
+                        this.handleReplyClose();
+                        this.handlePageGet();
+                        this.successMsg("回复成功");
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                });
+            },
+            // 关闭详情
+            handleDialogClose(){
+                this.commentDetail.visible = false;
+                this.commentReply.toCommentId = null;
+            },
+
+            // 打开详情
+            handleDetailOpen(row) {
+                this.commentDetail.id = row.id;
+                this.commentDetail.articleId = row.articleId;
+                this.$post("comment/detail", {nowCommentId: row.id, articleId: row.articleId}).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        this.commentDetail.commentTree = re.data.data;
+                        this.commentDetail.visible = true;
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                });
+            },
+
+            // 审批
+            handleCommentStatus(row, status) {
+                // 收集ids
+                const ids = row ? [row.id] : this.multipleSelection.map(item => item.id);
+                if (!row && ids.length === 0) {
+                    this.warnMsg('请先勾选');
+                    return;
+                }
+                this.$post("comment/status", {idList: ids, commentStatus: status}).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        if (this.commentDetail.visible) {
+                            this.handleDetailOpen(this.commentDetail);
+                        }
+                        //刷新
+                        this.handlePageGet();
+                        this.successMsg("审批成功");
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                });
+            }
+        }
+    })
+</script>
+
+</body>
+</html>

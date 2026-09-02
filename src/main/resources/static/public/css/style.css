@@ -1,0 +1,58 @@
+:root {
+    --hover-color: rgba(64, 158, 255, 1);
+}
+.blue-hover:hover {
+    color: var(--hover-color) !important;
+    cursor: pointer;
+}
+input[aria-hidden="true"] {
+    display: none !important;
+}
+.el-radio:focus:not(.is-focus):not(:active):not(.is-disabled) .el-radio__inner {
+    box-shadow: none !important;
+}
+.link-a{
+    text-decoration: none;
+    color: inherit;
+}
+.el-menu-item > .link-a{
+    display: block;
+}
+.pre-line {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.comment-root-item, .comment-child-item {
+    padding: 8px 15px;
+    display: flex;
+    border-radius: 15px;
+    border-bottom: 1px solid rgba(96, 98, 102, 1);
+    margin-bottom: 4px;
+}
+.comment-child-item {
+    margin-left: 40px;
+    width: calc(100% - 40px);
+}
+.comment-texts {
+    width: 100%;
+}
+.comment-text {
+    width: 100%;
+    padding-left: 15px;
+    margin-bottom: 8px;
+}
+.comment-to {
+    background-color: rgba(227, 235, 237, 0.7);
+}
+.comment-user-name {
+    color: rgba(96, 98, 102, 1);;
+}
+.comment-content {
+    color: rgba(0, 0, 0, 1);
+    margin-top: 5px;
+}
+.comment-more {
+    color: rgba(96, 98, 102, 1);;
+    margin-top: 5px;
+    font-size: 14px;
+}

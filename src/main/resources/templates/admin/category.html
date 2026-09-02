@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='分类管理'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}"></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <!--弹窗-->
+                <el-dialog :title="isCategoryAdd ?'新增分类':'编辑分类'" :visible.sync="isDialogOpen"
+                           @close="handleDialogClose"
+                           center width="30%">
+                    <el-form :model="categoryTemp" :rules="rules">
+                        <el-form-item label="分类名" prop="categoryName">
+                            <el-input show-word-limit maxlength="20" v-model="categoryTemp.categoryName"></el-input>
+                        </el-form-item>
+                        <el-form-item label="分类说明" prop="categoryDesc">
+                            <el-input show-word-limit maxlength="100" type="textarea"
+                                      v-model="categoryTemp.categoryDesc" autocomplete="off"
+                                      :autosize="{ minRows: 3, maxRows: 6 }"></el-input>
+                        </el-form-item>
+                    </el-form>
+                    <span slot="footer">
+                        <el-button @click="categoryClear">重置</el-button>
+                        <el-button type="primary" @click="dialogSubmit">提交</el-button>
+                    </span>
+                </el-dialog>
+                <div class="main-table-top">
+                    <!--搜索-->
+                    <el-input prefix-icon="el-icon-search" v-model="pageQuery.searchStr" placeholder="搜索分类名"
+                              @keyup.enter.native="handlePageGet" style="width: 330px;margin-right: 5px"
+                              show-word-limit clearable maxlength="20"></el-input>
+                    <el-button type="primary" icon="el-icon-search" @click="handlePageGet">搜索</el-button>
+                    <!--新增-->
+                    <el-button type="primary" @click="handleDialogOpen(null)" icon="el-icon-circle-plus-outline">新增
+                    </el-button>
+                    <!--删除-->
+                    <el-button type="danger" @click="handleDelete(null)" icon="el-icon-delete">删除</el-button>
+                </div>
+                <!--表格-->
+                <div class="main-table-div">
+                    <el-table :data="pageData.records" height="100%" max-height="100%"
+                              border @selection-change="handleSelectionChange" highlight-current-row
+                              @cell-dblclick="handleDialogOpen">
+                        <el-table-column type="selection" prop="id"></el-table-column>
+                        <el-table-column label="分类名" min-width="250px" prop="categoryName">
+                            <template #default="scope">
+                                <span>{{ scope.row.categoryName }}</span>
+                                <el-tag style="float: right" size="mini" v-if="scope.row.sort!==0"
+                                        closable type="warning" @close="handleCancelTop(scope.row)">
+                                    置顶
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="分类说明" min-width="300px" prop="categoryDesc"></el-table-column>
+                        <el-table-column prop="createTime" label="添加时间" min-width="170px"></el-table-column>
+                        <el-table-column align="left" fixed="right" min-width="240px" label="操作">
+                            <template #default="scope">
+                                <div>
+                                    <el-button type="warning" size="mini" @click="handleTop(scope.row)">
+                                        置顶
+                                    </el-button>
+                                    <el-button type="primary" size="mini" @click="handleDialogOpen(scope.row)">
+                                        编辑
+                                    </el-button>
+                                    <el-button type="danger" size="mini" @click="handleDelete(scope.row)">
+                                        删除
+                                    </el-button>
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+                <div class="main-table-bottom">
+                    <!--页码-->
+                    <el-pagination background
+                                   :page-sizes="[10, 20, 50, 100]"
+                                   :current-page="pageData.current"
+                                   :page-size="pageData.size"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   :total="pageData.total"
+                                   @size-change="handleSizeChange"
+                                   @current-change="handleCurrentChange">
+                    </el-pagination>
+                </div>
+
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            isDialogOpen: false,
+            isCategoryAdd: false,
+            categoryTemp: {
+                id: null,
+                categoryName: null,
+                categoryDesc: null
+            },
+            rules: {
+                categoryName: [
+                    {required: true, message: '分类名必填', trigger: 'blur'},
+                    {min: 1, max: 20, message: '长度为1-20位', trigger: 'blur'}
+                ],
+                categoryDesc: [{max: 100, message: '长度不能超过100', trigger: 'blur'}],
+            },
+        },
+        mounted() {
+            this.handlePageGet();
+        },
+        methods: {
+            // 清空临时数据
+            categoryClear() {
+                this.categoryTemp.categoryName = "";
+                this.categoryTemp.categoryDesc = "";
+            },
+            // 打开弹窗
+            handleDialogOpen(row) {
+                // 新增
+                if (row === null) {
+                    this.isCategoryAdd = true;
+                } else {
+                    this.isCategoryAdd = false;
+                    this.categoryTemp.id = row.id;
+                    this.categoryTemp.categoryName = row.categoryName;
+                    this.categoryTemp.categoryDesc = row.categoryDesc;
+                }
+                this.isDialogOpen = true;
+            },
+            // 关闭弹窗
+            handleDialogClose() {
+                if (!this.isCategoryAdd) {
+                    this.categoryTemp.id = null;
+                    this.categoryTemp.categoryName = null;
+                    this.categoryTemp.categoryDesc = null;
+                }
+                this.isDialogOpen = false;
+            },
+            // 弹窗表单提交
+            dialogSubmit() {
+                if (this.isCategoryAdd) {
+                    //新增
+                    this.handleAdd();
+                } else {
+                    this.handleEdit();
+                }
+            },
+            // 新增
+            handleAdd() {
+                if (this.isBlank(this.categoryTemp.categoryName)) {
+                    this.warnMsg("请先输入分类名");
+                    return;
+                }
+                // 新增
+                this.$post("category/add", this.categoryTemp).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        this.categoryTemp.id = null;
+                        this.categoryTemp.categoryName = null;
+                        this.categoryTemp.categoryDesc = null;
+                        this.isDialogOpen = false;
+                        // 刷新
+                        this.removeStorage(categorySelectsKey);
+                        this.handlePageGet();
+                        this.successMsg("新增成功");
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                }).catch(e => {
+                    this.errorMsg("新增分类失败:" + e.message);
+                });
+            },
+
+            // 保存修改
+            handleEdit() {
+                if (this.categoryTemp.id === null) {
+                    this.errorMsg("分类id不能为空");
+                    return;
+                }
+                // 空值
+                if (this.isBlank(this.categoryTemp.categoryName)) {
+                    this.errorMsg("分类名不能为空");
+                    return;
+                }
+                //更新
+                this.$post(this.adminPath + "/category/update", this.categoryTemp).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        this.categoryTemp.id = null;
+                        this.categoryTemp.categoryName = null;
+                        this.categoryTemp.categoryDesc = null;
+                        this.isDialogOpen = false;
+                        // 删除缓存
+                        this.removeStorage(categorySelectsKey);
+                        // 刷新
+                        this.handlePageGet();
+                        this.successMsg("修改成功");
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                }).catch(e => {
+                    this.errorMsg("修改分类失败:" + e.message);
+                });
+            },
+            // 取消修改
+            handleCancel(row) {
+                row.isEdit = false;
+            },
+        }
+    })
+</script>
+
+</body>
+</html>

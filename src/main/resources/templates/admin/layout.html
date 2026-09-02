@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>管理后台模板</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <!-- 公共css-->
+    <th:block th:fragment="base-css">
+    <link rel="stylesheet" th:href="@{/public/element/index.css}">
+    <link rel="stylesheet" th:href="@{/public/css/my-icon.css}">
+    <link rel="stylesheet" th:href="@{/public/css/style.css}">
+    <link rel="stylesheet" th:href="@{/public/css/admin.css}">
+    <style>
+        /* vue防闪烁 */
+        [v-cloak] {
+            display: none !important;
+        }
+    </style>
+    </th:block>
+</head>
+<body>
+<!-- 侧边栏 -->
+<el-aside th:fragment="aside(menuTitle)" v-if="asideExpand" class="aside-bc el-aside-admin">
+    <!--头像-->
+    <div class="avatar-div">
+        <el-avatar class="avatar" :size="50" th:src="${base.userInfo?.userAvatar}?:'/public/pic/tx.png'">头像
+        </el-avatar>
+        <span>[[${base.webTitle}]]</span>
+    </div>
+    <div>
+        <el-menu th:default-active="${menuTitle}?:'仪表盘'" class="el-menu-vertical-demo aside-bc">
+            <el-menu-item index="仪表盘">
+                <a class="link-a" th:href="${base.adminPath}+'/index'">
+                    <i class="el-icon-odometer"></i>
+                    <span>仪表盘</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item index="文章发布">
+                <a class="link-a" th:href="${base.adminPath}+'/article/edit'">
+                    <i class="el-icon-document-add"></i>
+                    <span>文章发布</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item index="文章管理">
+                <a class="link-a" th:href="${base.adminPath}+'/article'">
+                    <i class="el-icon-document"></i>
+                    <span>文章管理</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item index="评论管理">
+                <a class="link-a" th:href="${base.adminPath}+'/comment'">
+                    <i class="el-icon-chat-line-square"></i>
+                    <span>评论管理</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item index="分类管理">
+                <a class="link-a" th:href="${base.adminPath}+'/category'">
+                    <i class="el-icon-collection"></i>
+                    <span>分类管理</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item index="标签管理">
+                <a class="link-a" th:href="${base.adminPath}+'/tag'">
+                    <i class="el-icon-collection-tag"></i>
+                    <span>标签管理</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item index="文件管理">
+                <a class="link-a" th:href="${base.adminPath}+'/file'">
+                    <i class="el-icon-upload"></i>
+                    <span>文件管理</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item index="友链管理">
+                <a class="link-a" th:href="${base.adminPath}+'/link'">
+                    <i class="el-icon-s-promotion"></i>
+                    <span>友链管理</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item index="访客管理">
+                <a class="link-a" th:href="${base.adminPath}+'/visitor'">
+                    <i class="el-icon-link"></i>
+                    <span>访客管理</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item index="系统设置">
+                <a class="link-a" th:href="${base.adminPath}+'/setting'">
+                    <i class="el-icon-setting"></i>
+                    <span>系统设置</span>
+                </a>
+            </el-menu-item>
+            <el-menu-item>
+                <a class="link-a" th:href="${base.adminPath}+'/logout'">
+                    <i class="el-icon-switch-button"></i>
+                    <span>安全退出</span>
+                </a>
+            </el-menu-item>
+        </el-menu>
+    </div>
+</el-aside>
+<!-- 顶部 -->
+<el-header th:fragment="header(menuTitle)" class="h-f-height el-header-admin">
+    <!--素材库-->
+    <el-drawer :visible.sync="filePageQuery.visible" title="素材库" size="60%" direction="ltr">
+        <el-tabs style="margin: 0 1rem 0 1rem" stretch v-model="filePageQuery.tab" @tab-click="fileTabClick" type="border-card">
+            <el-tab-pane label="图片" name="image">
+                <el-input size="small" placeholder="搜索图片名" v-model="filePageQuery.searchStr" class="input-with-select"
+                          @keyup.enter.native="handleFilePageGet" style="width: 70%;margin-right: 5px"
+                          show-word-limit maxlength="20">
+                    <el-select th:if="${menuTitle == '文章发布'}" v-model="filePageQuery.fileTypes" style="width: 155px;" disabled multiple clearable
+                               slot="prepend" collapse-tags placeholder="类型" value="">
+                        <el-option v-for="item in fileTypeSelects" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                    </el-select>
+                </el-input>
+                <el-button size="small" type="primary" icon="el-icon-search" @click="handleFilePageGet" style="margin-right: 10px">搜索</el-button>
+                <!--瀑布流图片-->
+                <div style="margin-top: 10px;margin-bottom: 10px">
+                    <div class="waterfall-container">
+                        <div v-for="file in filePageData.records" class="waterfall-image" :key="file.id" @click="userDialog.visible?insertUserAvatar(file):insertFile(file)">
+                            <el-tooltip class="item" effect="light" :content="file.fileName" placement="bottom">
+                                <el-image :src="fileUrlPrefix + file.id" fit="cover" lazy></el-image>
+                            </el-tooltip>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex;">
+                    <!--页码-->
+                    <el-pagination background
+                                   :page-sizes="[10, 20, 50, 100]"
+                                   :current-page="filePageQuery.page"
+                                   :page-size="filePageQuery.size"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   :total="filePageQuery.total"
+                                   @size-change="handleFileSizeChange"
+                                   @current-change="handleFileCurrentChange">
+                    </el-pagination>
+                </div>
+            </el-tab-pane>
+            <el-tab-pane th:if="${menuTitle == '文章发布'}" label="文件" name="file">
+                <el-input size="small" placeholder="搜索文件名" v-model="filePageQuery.searchStr" class="input-with-select"
+                          @keyup.enter.native="handleFilePageGet" style="width: 70%;margin-right: 5px"
+                          show-word-limit maxlength="20">
+                    <el-select v-model="filePageQuery.fileTypes" style="width: 155px;" multiple clearable
+                               slot="prepend" collapse-tags placeholder="类型" value="">
+                        <el-option v-for="item in fileTypeSelects" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                    </el-select>
+                </el-input>
+                <el-button size="small" type="primary" icon="el-icon-search" @click="handleFilePageGet" style="margin-right: 10px">搜索</el-button>
+                <!--文件表格-->
+                <div style="margin-top: 10px;margin-bottom: 10px">
+                    <el-table :data="filePageData.records" border highlight-current-row
+                              @cell-dblclick="" ref="tableRef">
+                        <el-table-column label="文件名" min-width="330px" prop="fileName">
+                            <template #default="scope">
+                                <!--双击插入-->
+                                <div @dblclick="insertFile(scope.row)">{{scope.row.fileName}}</div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="添加时间" min-width="170px" prop="createTime"></el-table-column>
+                        <el-table-column label="操作" min-width="80px" align="left" fixed="right">
+                            <template #default="scope">
+                                <div>
+                                    <el-button type="primary" size="mini" @click="insertFile(scope.row)">
+                                        插入
+                                    </el-button>
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+                <div style="display: flex;">
+                    <!--页码-->
+                    <el-pagination background
+                                   :page-sizes="[10, 20, 50, 100]"
+                                   :current-page="filePageQuery.page"
+                                   :page-size="filePageQuery.size"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   :total="filePageQuery.total"
+                                   @size-change="handleFileSizeChange"
+                                   @current-change="handleFileCurrentChange">
+                    </el-pagination>
+                </div>
+            </el-tab-pane>
+        </el-tabs>
+
+    </el-drawer>
+    <!--用户信息-->
+    <el-dialog :close-on-click-modal="false" title="用户详情" :visible.sync="userDialog.visible" width="40%" @close="closeUserForm">
+        <el-form ref="userForm" :model="userDialog" :rules="userRules" label-width="80px">
+            <el-form-item label="头像" prop="userAvatar">
+                <div style="display: flex">
+                    <div>
+                        <el-tooltip class="item" effect="dark" content="点击上传" placement="top">
+                            <el-upload style="display: inline-block"
+                                       drag
+                                       :action="fileUploadUrl"
+                                       :show-file-list="false"
+                                       :on-success="handleAvatarSuccess"
+                                       :before-upload="beforeAvatarUpload">
+                                <img v-if="userDialog.userAvatar" :src="userDialog.userAvatar" style="width: 100%;height: 100%" alt="">
+                                <i v-else class="el-icon-plus avatar-uploader-icon"></i>
+                            </el-upload>
+                        </el-tooltip>
+                    </div>
+                    <div style="margin-left: 0.5rem;display: block" >
+                        <el-button type="info" @click="userDialog.userAvatar = defaultAvatar">默认</el-button>
+                        <el-button type="primary" @click="handleFileOpen">图库</el-button>
+                    </div>
+                </div>
+            </el-form-item>
+            <el-form-item label="用户名" prop="userName">
+                <el-input v-model="userDialog.userName"></el-input>
+            </el-form-item>
+            <el-form-item label="登录名" prop="userCode">
+                <el-input v-model="userDialog.userCode"></el-input>
+            </el-form-item>
+            <el-form-item label="邮箱" prop="userEmail">
+                <el-input v-model="userDialog.userEmail"></el-input>
+            </el-form-item>
+            <el-form-item label="QQ" prop="userQq">
+                <el-input v-model="userDialog.userQq"></el-input>
+            </el-form-item>
+            <el-form-item>
+                <el-button @click="closeUserForm">取消</el-button>
+                <el-button type="primary" @click="submitUserForm">保存</el-button>
+            </el-form-item>
+        </el-form>
+    </el-dialog>
+    <!--修改密码-->
+    <el-dialog :close-on-click-modal="false" title="修改密码" :visible.sync="passwordDialog.visible" width="40%" @close="closePasswordForm">
+        <el-form ref="passwordForm" :model="passwordDialog" :rules="passwordRules" label-width="80px">
+            <el-form-item label="旧密码" prop="oldPassword">
+                <el-input v-model="passwordDialog.oldPassword" type="password" show-password></el-input>
+            </el-form-item>
+            <el-form-item label="新密码" prop="newPassword">
+                <el-input v-model="passwordDialog.newPassword" type="password" show-password></el-input>
+            </el-form-item>
+            <el-form-item label="确认密码" prop="confirmPassword">
+                <el-input v-model="passwordDialog.confirmPassword" type="password" show-password></el-input>
+            </el-form-item>
+            <el-form-item>
+                <el-button @click="closePasswordForm">取消</el-button>
+                <el-button type="primary" @click="submitPasswordForm">保存</el-button>
+            </el-form-item>
+        </el-form>
+    </el-dialog>
+    <div>
+        <span style="font-weight: bold;" @click="handleAsideStatus"
+                 :class="[asideExpand ? 'el-icon-s-unfold' : 'el-icon-s-fold', 'blue-hover']"></span>
+
+        <strong style="margin-left: 0.5rem">[[${(menuTitle?:'') + (base.articleId!=null?'-编辑':'')}]]</strong>
+
+        <el-dropdown class="blue-hover user-drop">
+            <i class="front-link el-icon-user-solid">[[' ' + (${base.userInfo?.userName} ?:'作者')]]</i>
+            <el-dropdown-menu class="user-drop-menu" slot="dropdown">
+                <el-dropdown-item>
+                    账号 <span style="float: right" th:text="${base.userInfo?.userCode} ?: 'admin'"></span>
+                </el-dropdown-item>
+                <el-dropdown-item>
+                    邮箱 <span style="float: right" th:text="${base.userInfo?.userEmail} ?: 'xxxx@qq.com'"></span>
+                </el-dropdown-item>
+                <el-dropdown-item>
+                    <div style="display: flex; justify-content: space-between; width: 100%;">
+                        <el-button type="text" @click="userDialog.visible=true">用户详细</el-button>
+                        <el-button type="text" @click="passwordDialog.visible=true">修改密码</el-button>
+                    </div>
+                </el-dropdown-item>
+            </el-dropdown-menu>
+        </el-dropdown>
+        <a style="color: inherit" href="/" target="_blank">
+            <span class="el-icon-s-opportunity blue-hover front-link">首页</span>
+        </a>
+    </div>
+</el-header>
+<!-- 底部 -->
+<el-footer th:fragment="footer" width="100%" class="h-f-height el-footer-out">
+    <strong style="float: right">
+        <i class="mi mi-copyright"></i><span th:text="${base.copyrightYear}"></span> BY <a class="blue-hover link-a" href="/">[[${base.webTitle}]]</a>
+    </strong>
+</el-footer>
+</body>
+<!-- 公共js -->
+<th:block th:fragment="base-js">
+<script th:src="@{/public/js/vfp.min.js}"></script>
+<script th:src="@{/public/js/vue.min.js}"></script>
+<script th:src="@{/public/js/axios.min.js}"></script>
+<script th:src="@{/public/js/app-utils.js}"></script>
+<script th:src="@{/public/js/admin-utils.js}"></script>
+<script th:src="@{/public/element/index.js}"></script>
+</th:block>
+</html>

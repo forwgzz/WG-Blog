@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${(article.articleTitle) + (' | ' + base.webTitle)}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="keywords" th:content="${article.articleTitle + ',' +base.webTitle}">
+    <meta name="description" th:content="${article.articleAbstract?:''}">
+    <meta name="author" th:content="${author.userName}"/>
+    <th:block th:replace="~{front/layout::base-css}"></th:block>
+    <link rel="stylesheet" th:href="@{/public/css/a11y-dark.min.css}">
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <header th:replace="~{front/layout::header}"></header>
+    <div th:replace="~{front/layout::show-text}"></div>
+    <div class="middle-container">
+        <aside th:replace="~{front/layout::aside}"></aside>
+        <main id="main" class="main">
+            <!-- 标题 -->
+            <div class="main-card article-info-header">
+                <div class="article-info-title" th:utext="${article?.articleTitle}"></div>
+                <div style="margin-top: 5px">
+                    <i class="el-icon-date"></i> <span th:text="${#temporals.format(article?.createTime, 'yyyy-MM-dd HH:mm')}"></span>
+                    <i class="el-icon-time"></i> <span th:text="${#temporals.format(article?.updateTime, 'yyyy-MM-dd HH:mm')}"></span>
+                    <i class="el-icon-document"></i> <span th:text="${article?.wordCount}"></span>
+                    <i class="el-icon-view"></i><span th:text="${article?.viewCount}"></span>
+                    <i class="el-icon-chat-dot-round"></i> <span th:text="${article?.commentCount}"></span>
+                </div>
+                <div style="margin-top: 5px">
+                    <i class="el-icon-collection"></i>
+                    <span class="common-tag category-tag">
+                        <a th:href="'/category/'+${article.categoryId}" th:text="${article.categoryName}"></a>
+                    </span>
+                    <th:block th:if="${article.tagList != null && article.tagList.size > 0}">
+                        <i class="el-icon-collection-tag" ></i>
+                        <span th:each="tag:${article.tagList}" class="common-tag">
+                            <a th:href="'/tag/'+${tag.id}" th:text="${tag.tagName}"/>
+                        </span>
+                    </th:block>
+                </div>
+            </div>
+            <!-- 文章 -->
+            <div class="main-card">
+                <!-- 文章内容 -->
+                <article class="article-info-content" th:utext="${article?.articleContent}"></article>
+                <el-divider></el-divider>
+                <!-- 赞赏 -->
+                <div th:if="${!#strings.isEmpty(base.donateUrl)}" style="display: flex; justify-content: center; align-items: center;">
+                    <el-popover width="300" placement="bottom" trigger="click">
+                        <div style="display: flex; justify-content: center;">
+                            <el-image th:src="${base.donateUrl}"></el-image>
+                        </div>
+                        <el-button type="success" slot="reference">赞赏</el-button>
+                    </el-popover>
+                </div>
+                <!--版权-->
+                <el-card class="copyright-notice">
+                    作者：<th:block th:text="${author.userName}"></th:block>
+                    <br>版权声明: 本博客所有文章除特别声明外，均采用
+                    <a class="blue-hover" href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank"> CC BY-NC-SA 4.0</a>协议
+                    <br>转载请注明文章地址及作者
+                </el-card>
+            </div>
+            <!--评论-->
+            <div th:replace="~{front/layout::comment}"></div>
+        </main>
+    </div>
+    <footer th:replace="~{front/layout::footer}"></footer>
+</div>
+</body>
+<th:block th:replace="~{front/layout::base-js}"></th:block>
+<script th:src="@{/public/js/highlight.min.js}"></script>
+<script th:src="@{/public/js/highlight-line-numbers.min.js}"></script>
+
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [FrontUtilsMixin],
+        data: {
+
+        },
+        mounted() {
+            this.initImagePreview();
+            this.initCodeFormat();
+            this.initCommentUser();
+        },
+        methods: {
+
+        }
+    })
+</script>
+</html>

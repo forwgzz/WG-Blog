@@ -1,0 +1,157 @@
+:root {
+    --aside-width: 14rem;
+    --h-f-height: 4rem;
+}
+html,body {
+    font-size: 16px;
+    box-sizing: border-box;
+    vertical-align: middle;
+    background-color: #f5f5f5;
+    margin: 0;
+}
+.container_100 {
+    height: 100vh !important;
+    min-width: 400px;
+}
+
+
+/*aside start-------------------------------*/
+.el-aside-admin {
+    color: #ffffff;
+    overflow: auto;
+    width: var(--aside-width) !important;
+    height: 100%;
+    border-radius: 0.5rem;
+    bottom: 0.5rem;
+}
+.aside-bc {
+    background-color: #2b2d30;
+}
+.avatar-div {
+    font-size: 25px;
+    height: 60px;
+    line-height: 60px;
+    text-align: left;
+    box-sizing: border-box;
+}
+.avatar{
+    margin-left: 5px;
+    margin-right: 5px;
+    vertical-align: middle ;
+    border: none;
+}
+
+.avatar-container {
+    display: flex;
+    justify-content: center; /* 水平居中 */
+    align-items: center;     /* 垂直居中 */
+    width: 100px;
+    height: 100px;
+}
+
+.el-menu{
+    border: none;
+}
+.el-menu-item{
+    color: #fff;
+    border-radius: 0.5rem;
+    margin: 0.5rem;
+}
+.el-menu-item i{
+    padding-left: 1rem;
+}
+.el-menu-item.is-active,.el-menu-item:hover{
+    background-color: #409eff;
+    color: #fff;
+}
+/*aside end-------------------------------*/
+
+/*header start-------------------------------*/
+.h-f-height{
+    height: 4rem !important;
+    line-height: 4rem !important;
+    background-color: #d6e0e9;
+    border-radius: 0.5rem;
+    bottom: 0.5rem;
+    border: none;
+    box-sizing: border-box;
+    color: #333;
+}
+.front-link{
+    float: right;
+    font-weight: bold;
+    align-items: center;
+    line-height: 4rem !important;
+}
+.user-drop{
+    margin-left: 20px;
+    float: right;
+    color: #333;
+    margin-right: 16px;
+    font-size: 16px;
+}
+.user-drop-menu{
+    width: 15rem
+}
+/*header end-------------------------------*/
+
+/*main start-------------------------------*/
+.el-main-admin {
+    padding: 0.5rem 1.5rem 0.5rem 1.5rem;
+    overflow: auto;
+    border: none;
+    border-radius: 0.5rem;
+    background-color: #e7e7e7;
+}
+.main-table-top{
+    height: 40px;
+    display: flex;
+}
+.main-table-div{
+    overflow: auto;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    height: calc(100% - 80px - 1.5rem);
+}
+.main-table-bottom{
+    display: flex;
+    height: 40px;
+}
+/*main end-------------------------------*/
+
+
+/*瀑布流图片*/
+/*瀑布流*/
+.waterfall-container {
+    column-width: 150px; /*宽度200px*/
+}
+
+.waterfall-image {
+    width: 100%;
+    position: relative; /* 关键：创建定位上下文 */
+    display: inline-block; /* 根据图片宽度自适应 */
+}
+
+.waterfall-image .el-image {
+    width: 100%;
+}
+
+.waterfall-image .el-image:hover {
+    transform: scale(1.03);
+}
+
+.el-upload {
+    width: 100px !important;
+    height: 100px !important;
+}
+.el-upload-dragger {
+    width: 100px !important;
+    height: 100px !important;
+}
+.avatar-uploader-icon {
+    font-size: 28px;
+    width: 100px;
+    height: 100px;
+    line-height: 100px;
+    text-align: center;
+}

@@ -1,0 +1,33 @@
+name: Gitea to GitHub and Gitee
+
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+  sync:
+    runs-on: runner
+    steps:
+    - name: Clone and Push
+      env:
+        ACTOR: ${{ gitea.actor }}
+        GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        GITEA_SERVER: ${{ gitea.server_url }}
+        REPO: ${{ gitea.repository }}
+        GHP: ${{ secrets.GHP }}
+        GITEE: ${{ secrets.GITEE }}
+      run: |
+        # 去除https:// 或 http://
+        SERVER_HOST="${GITEA_SERVER#https://}"
+        SERVER_HOST="${SERVER_HOST#http://}"
+        
+        git clone --bare "http://${ACTOR}:${GITEA_TOKEN}@${SERVER_HOST}/${REPO}.git" repo
+        cd repo
+        
+        # github
+        git push https://forwgzz:${GHP}@github.com/forwgzz/wg-blog.git main
+        # gitee
+        git push https://forwgzz:${GITEE}@gitee.com/forwgzz/wg-blog.git main
+        
+        

@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='文件管理'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>>
+    <style>
+
+    </style>
+</head>
+<style>
+    .el-upload {
+        width: 100%;
+    }
+    .el-upload .el-upload-dragger {
+        width: 100%;
+    }
+    .upload-file-item {
+        display: flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+    }
+    .file-name {
+        margin-left: 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 200px;
+    }
+</style>
+<body>
+<div id="app" v-cloak>
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}"></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <el-drawer @close="uploadClose" title="文件上传" size="40%" :visible.sync="uploadDrawerOpen"
+                           direction="rtl" :wrapper-closable="false">
+                    <div>
+                        <el-upload
+                                ref="upload" :limit="uploadLimit" style="margin: 0 5%" class="upload-demo" drag
+                                :file-list="uploadFileList"
+                                :on-success="onSuccess" :on-error="onError" :on-change="onChange" :on-remove="onRemove"
+                                :on-exceed="onExceed"
+                                :action="fileUploadUrl" :auto-upload="false" multiple>
+                            <i class="el-icon-upload"></i>
+                            <div class="el-upload__text">将文件/文件夹拖到此处，或<em>点击上传</em></div>
+                            <div class="el-upload__tip" slot="tip">文件大小不能超过50mb</div>
+                            <!-- 自定义文件插槽 -->
+                            <template #file="{ file }">
+                                <el-tooltip :content="file.name" placement="top" :open-delay="300">
+                                    <div class="upload-file-item">
+                                        <i v-if="file.status === 'success'" class="el-icon-upload-success el-icon-circle-check" ></i>
+                                        <i v-else-if="file.status === 'fail'" class="el-icon-circle-close"></i>
+                                        <i v-else class="el-icon-document"></i>
+                                        <!--文件名（溢出省略）-->
+                                        <span class="file-name">{{ file.name }}</span>
+                                        <i class="el-icon-close"  @click.stop="onRemove(file)"></i>
+                                    </div>
+                                </el-tooltip>
+                            </template>
+                        </el-upload>
+                    </div>
+                    <div style="text-align: right;margin-top: 10%;margin-right: 5%">
+                        <el-button style="width: 20%" type="danger" @click="uploadClear">清空</el-button>
+                        <el-button style="width: 20%" type="info" @click="uploadClose">关闭</el-button>
+                        <el-button style="width: 20%" type="success" @click="uploadSubmit">确认</el-button>
+                    </div>
+                </el-drawer>
+                <!--重命名弹窗-->
+                <el-dialog title="重命名" :visible.sync="renameDialogOpen" @close="handleRenameClose"
+                           center width="50%">
+                    <el-form :model="renameForm" :rules="rules" ref="renameForm">
+                        <el-form-item label="原始名称">
+                            <el-input :disabled="true" v-model="renameForm.fileOldName"></el-input>
+                        </el-form-item>
+                        <el-form-item label="当前名称">
+                            <el-input :disabled="true" v-model="renameForm.fileNowName"></el-input>
+                        </el-form-item>
+                        <el-form-item label="新名称" prop="fileName">
+                            <el-input show-word-limit maxlength="100"
+                                      v-model="renameForm.fileName"></el-input>
+                        </el-form-item>
+                    </el-form>
+                    <span slot="footer">
+                        <el-button @click="renameFormClear">重置</el-button>
+                        <el-button slot="reference" type="primary" @click="renameFormSubmit">确认</el-button>
+                    </span>
+                </el-dialog>
+                <!--预览弹窗 -->
+                <el-dialog :visible.sync="previewInfo.open" :title="previewInfo.fileName" width="50%"
+                           @close="handlePreviewClose">
+                    <div>
+                        <video
+                                v-if="previewInfo.fileType === 'video'"
+                                :src="previewInfo.fileUrl"
+                                controls
+                                style="width: 100%"
+                        ></video>
+
+                        <audio
+                                v-else-if="previewInfo.fileType === 'audio'"
+                                :src="previewInfo.fileUrl"
+                                controls
+                                style="width: 100%"
+                        ></audio>
+                    </div>
+                </el-dialog>
+                <!--搜索-->
+                <div class="main-table-top">
+                    <!--搜索-->
+                    <el-input placeholder="搜索文件名" v-model="pageQuery.searchStr" class="input-with-select"
+                              @keyup.enter.native="handlePageGet" style="width: 485px;margin-right: 5px"
+                              show-word-limit clearable maxlength="20">
+                        <el-select v-model="pageQuery.fileTypes" style="width: 155px;" multiple clearable
+                                   slot="prepend" collapse-tags placeholder="类型" value="">
+                            <el-option v-for="item in fileTypeSelects" :key="item.value" :label="item.label"
+                                       :value="item.value"></el-option>
+                        </el-select>
+                    </el-input>
+                    <el-button type="primary" icon="el-icon-search" @click="handlePageGet">搜索</el-button>
+                    <!--上传-->
+                    <el-button type="primary" @click="handleUploadOpen" icon="el-icon-upload2">上传</el-button>
+                    <!--删除-->
+                    <el-button type="danger" @click="handleDelete(null)" icon="el-icon-delete">删除</el-button>
+                </div>
+                <!--表格-->
+                <div class="main-table-div">
+                    <el-table :data="pageData.records" height="100%" max-height="100%"
+                              border @selection-change="handleSelectionChange" highlight-current-row
+                              @cell-dblclick="" ref="tableRef">
+                        <el-table-column type="selection" prop="id"></el-table-column>
+                        <el-table-column label="文件名" min-width="330px" prop="fileName">
+                            <template #default="scope">
+                                <template v-if="scope.row.fileType === 'image'">
+                                    <div>
+                                        <span>{{ scope.row.fileName }}</span>
+                                        <el-tag style="float: right" size="mini" v-if="scope.row.sort!==0"
+                                                closable type="warning" @close="handleCancelTop(scope.row)">
+                                            置顶
+                                        </el-tag>
+                                    </div>
+                                    <el-image style="max-width: 250px" :src="fileUrlPrefix + scope.row.id"
+                                              :preview-src-list="[ fileUrlPrefix + scope.row.id]"
+                                              @load="handleImageLoad"></el-image>
+                                </template>
+                                <template v-else>
+                                    <i v-if="scope.row.fileType === 'video' || scope.row.fileType === 'audio'"
+                                       class="el-icon-video-play blue-hover" @click="handlePreview(scope.row)"></i>
+                                    <span>{{ scope.row.fileName }}</span>
+                                    <el-tag style="float: right" size="mini" v-if="scope.row.sort!==0"
+                                            closable type="warning" @close="handleCancelTop(scope.row)">
+                                        置顶
+                                    </el-tag>
+                                </template>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="文件类型" min-width="100px" prop="fileType"
+                                         :formatter="(row) => fileTypeMap[row.fileType] || row.fileType" ></el-table-column>
+                        <el-table-column label="添加时间" min-width="170px" prop="createTime"></el-table-column>
+                        <el-table-column label="操作" min-width="300px" align="left" fixed="right">
+                            <template #default="scope">
+                                <div>
+                                    <el-button type="warning" size="mini" @click="handleTop(scope.row)">
+                                        置顶
+                                    </el-button>
+                                    <el-button type="primary" size="mini" @click="handleRenameOpen(scope.row)">
+                                        重命名
+                                    </el-button>
+                                    <el-button type="primary" size="mini" @click="handleFileDownload(scope.row)">
+                                        下载
+                                    </el-button>
+                                    <el-button type="danger" size="mini" @click="handleDelete(scope.row)">
+                                        删除
+                                    </el-button>
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+                <div class="main-table-bottom">
+                    <!--页码-->
+                    <el-pagination background
+                                   :page-sizes="[10, 20, 50, 100]"
+                                   :current-page="pageData.current"
+                                   :page-size="pageData.size"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   :total="pageData.total"
+                                   @size-change="handleSizeChange"
+                                   @current-change="handleCurrentChange">
+                    </el-pagination>
+                </div>
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            pageQuery: {
+                fileTypes: [],
+            },
+
+            previewInfo: {
+                open: false,
+                fileName: "",
+                fileUrl: "",
+                fileType: "",
+            },
+            uploadLimit: 20,
+            maxFileSize: 50,//单位mb
+            uploadDrawerOpen: false,
+
+            uploadFileList: [],
+            isDropAdd: false,
+            tempIndex: 1,
+
+
+            downloadForm: {
+                url: "",
+                name: ""
+            },
+
+            renameDialogOpen: false,
+            renameForm: {
+                id: "",
+                fileOldName: "",
+                fileNowName: "",
+                fileName: "",
+            },
+
+            rules: {
+                fileName: [
+                    {required: true, message: '文件名不能为空', trigger: 'blur'},
+                    {
+                        pattern: /^[^\s\/\\]+$/,
+                        message: '不能包含 空格 / \\',
+                        trigger: ['blur', 'change']
+                    },
+                    {max: 100, message: "长度不能超过100", trigger: 'blur'}
+                ]
+            }
+        },
+        computed:{
+            // 文件类型map
+            fileTypeMap() {
+                return Object.fromEntries(this.fileTypeSelects.map(item => [item.value, item.label]))
+            }
+        },
+        mounted() {
+            this.getFileTypeSelects();
+            this.handlePageGet();
+        },
+        methods: {
+            // 强制刷新表格
+            handleImageLoad() {
+                this.$refs.tableRef.doLayout();
+            },
+            
+            // 打开预览
+            handlePreview(row) {
+                this.previewInfo.open = true;
+                this.previewInfo.fileName = row.fileName;
+                this.previewInfo.fileUrl = this.fileUrlPrefix + row.id;
+                this.previewInfo.fileType = row.fileType;
+            },
+            // 关闭预览
+            handlePreviewClose() {
+                const media = document.querySelector('video, audio');
+                if (media) media.pause();
+            },
+            
+            // 打开上传页面
+            handleUploadOpen() {
+                this.uploadDrawerOpen = true;
+                //初始化文件夹拖动
+                this.$nextTick(() => this.directoryDragInit());
+            },
+            // 文件夹拖拽初始化
+            directoryDragInit() {
+                // 绑定拖动事件
+                if (!this.isDropAdd) {
+                    let t = this;
+                    document.querySelector(".el-upload-dragger").addEventListener("drop", function (e) {
+                        let items = e.dataTransfer.items;
+                        for (let i = 0; i <= items.length - 1; i++) {
+                            let item = items[i];
+                            if (item.kind === "file") {
+                                let entry = item.webkitGetAsEntry();
+                                if (entry.isFile) return;//文件不触发
+                                t.directoryRead(entry)
+                            }
+                        }
+                        e.preventDefault();
+                    })
+                    this.isDropAdd = true;
+                }
+            },
+            // 读取文件夹
+            async directoryRead(entry) {
+                if (entry.isFile) {
+                    //读取文件
+                    let file = await new Promise((resolve, reject) => {
+                        entry.file(resolve, reject);
+                    });
+                    file.uid = Date.now() + this.tempIndex++;
+                    //组装
+                    let uploadFile = {
+                        //url: URL.createObjectURL(file),
+                        name: file.name,
+                        percentage: 0,
+                        raw: file,
+                        size: file.size,
+                        status: "ready",
+                        uid: file.uid
+                    }
+                    //检验 添加
+                    this.checkAndPush(uploadFile, this.$refs.upload.uploadFiles);
+                    this.uploadFileList = this.$refs.upload.uploadFiles;
+                } else {
+                    //文件夹内容列表
+                    const entries = await new Promise((resolve, reject) => {
+                        entry.createReader().readEntries(resolve, reject);
+                    });
+                    //循环读取
+                    for (const entry of entries) {
+                        this.directoryRead(entry);
+                    }
+                }
+            },
+
+            // 上传提交
+            uploadSubmit() {
+                if (this.uploadFileList.length === 0) {
+                    this.warnMsg("请先选择文件")
+                    return
+                }
+                if (this.uploadFileList.findIndex(file => file.status === "ready") === -1) {
+                    this.warnMsg("当前文件已上传或异常")
+                    return
+                }
+                this.$refs.upload.submit();
+            },
+            // 上传关闭
+            uploadClose() {
+                this.uploadFileList = [];
+                this.uploadDrawerOpen = false;
+                this.handlePageGet();
+            },
+            // 上传清空
+            uploadClear() {
+                this.$refs.upload.uploadFiles = [];
+                this.uploadFileList = [];
+            },
+            // 上传成功
+            onSuccess(res, file, fileList) {
+                if (res.code === "200") {
+                    this.uploadFileList = fileList;
+                } else {
+                    file.status = "error";
+                    file.name = file.name + "(失败：" + res.msg + ")";
+                    this.uploadFileList = fileList;
+                }
+            },
+            // 网络异常
+            onError(res, file, fileList) {
+                file.status = "error";
+                file.name = `${file.name}（上传异常）`;
+                this.uploadFileList = fileList;
+            },
+            // 文件改变
+            onChange(file, fileList) {
+                //size=0 为文件夹
+                if (file.size === 0) {
+                    fileList.pop()
+                    this.uploadFileList = fileList;
+                    return;
+                }
+                this.checkAndPush(file, fileList);
+                this.uploadFileList = fileList;
+            },
+            //检验大小，并添加
+            checkAndPush(file, fileList) {
+                if (file.status !== "ready") return;
+                let isOnChange = false;
+                //onchange
+                if (fileList.length > 0 && file === fileList[fileList.length - 1]) {
+                    isOnChange = true;
+                    let index = fileList.findIndex(f => f.name === file.name && f.size === file.size);
+                    if (index !== fileList.length - 1) {
+                        //重复文件移除
+                        fileList.pop();
+                        this.warnMsg("文件[" + file.name + "]已存在")
+                        return;
+                    }
+                }
+                if (file.size === 0) return;
+                //检验大小
+                let fileSize = Number(file.size / 1024 / 1024);
+                if (fileSize > this.maxFileSize) {
+                    file.status = "error";
+                    file.name = file.name + "(文件过大)";
+                }
+                let hasSame = false;
+                for (let f of fileList) {
+                    if (file === f) continue;
+                    //相同文件
+                    if (f.name === file.name && f.size === file.size) {
+                        hasSame = true;
+                        break;
+                    }
+                    if (f.name === file.name && file.status !== "error") {
+                        file.status = "error";
+                        file.name = file.name + "(名称重复)";
+                        break;
+                    }
+                }
+                if (!hasSame && !isOnChange) fileList.push(file);
+            },
+            // 文件删除
+            onRemove(file, fileList) {
+                if (fileList) {
+                    this.uploadFileList = fileList;
+                } else {
+                    const index = this.uploadFileList.findIndex(f => f.uid === file.uid)
+                    if (index !== -1) {
+                        this.uploadFileList.splice(index, 1)
+                    }
+                }
+
+            },
+            // 数量超限
+            onExceed(file, fileList) {
+                this.warnMsg("一次性只能上传" + this.uploadLimit + "个文件");
+            },
+
+
+            // 按钮触发下载
+            handleFileDownload(row) {
+                // 创建一个a标签
+                const a = document.createElement('a');
+                a.href = this.fileUrlPrefix + row.id;
+                a.download = row.fileName;
+                a.style.display = 'none';
+                //将a标签追加到文档对象中
+                document.body.appendChild(a);
+                //模拟点击
+                a.click();
+                //删除a标签
+                a.remove();
+            },
+
+            // 打开重命名弹窗
+            handleRenameOpen(row) {
+                this.renameDialogOpen = true;
+                this.renameForm.fileName = "";
+                this.renameForm.fileOldName = row.fileOldName;
+                this.renameForm.fileNowName = row.fileName;
+                this.renameForm.id = row.id;
+                this.renameForm.fileSuffix = row.fileSuffix;
+            },
+            // 关闭重命名弹窗
+            handleRenameClose() {
+                this.renameDialogOpen = false;
+                this.handlePageGet();
+            },
+            // 重命名表单清空
+            renameFormClear() {
+                this.renameForm.fileName = "";
+            },
+            // 重命名表单提交
+            renameFormSubmit() {
+                this.$refs["renameForm"].validate((valid) => {
+                    if (valid) {
+                        this.$post(this.adminPath + "/file/update", this.renameForm).then(re => {
+                            if (re.data && re.data.code === 200) {
+                                //刷新
+                                this.handleRenameClose();
+                                this.handlePageGet();
+                                this.successMsg("重命名成功");
+                            } else {
+                                this.errorMsg(re.data.msg);
+                            }
+                        })
+                    } else {
+                        this.warnMsg("名称不能包含 空格 / \\");
+                        return false;
+                    }
+                });
+            },
+        }
+    })
+</script>
+
+</body>
+</html>

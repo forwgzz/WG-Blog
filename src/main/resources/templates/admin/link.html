@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='友链管理'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>
+    <style>
+
+        .el-upload {
+            width: 100px !important;
+            height: 100px !important;
+        }
+        .el-upload-dragger {
+            width: 100px !important;
+            height: 100px !important;
+        }
+        .avatar-uploader-icon {
+            font-size: 28px;
+            width: 100px;
+            height: 100px;
+            line-height: 100px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}" ></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <!--弹窗-->
+                <el-drawer :title="linkDialog.isAdd?'新增':'编辑'"
+                           :visible.sync="linkDialog.visible" @close="handleDialogClose" size="50%" direction="rtl">
+                    <el-form :model="linkTemp" :rules="rules" ref="dialogForm" label-position="top" style="padding: 0 1rem">
+                        <el-form-item label="友链头像" prop="linkAvatar">
+                            <div style="display: flex">
+                                <div>
+                                    <el-upload style="display: inline-block"
+                                               drag
+                                               :action="fileUploadUrl"
+                                               :show-file-list="false"
+                                               :on-success="handleAvatarSuccess"
+                                               :before-upload="beforeAvatarUpload">
+                                        <img v-if="linkTemp.linkAvatar" :src="linkTemp.linkAvatar" style="width: 100%;height: 100%" alt="">
+                                        <i v-else class="el-icon-plus avatar-uploader-icon"></i>
+                                    </el-upload>
+                                </div>
+                                <div style="margin-left: 0.5rem">
+                                    <el-button @click="handleFileOpen">素材库</el-button>
+                                </div>
+                            </div>
+                        </el-form-item>
+                        <el-form-item label="友链名" prop="linkName">
+                            <el-input show-word-limit maxlength="50" v-model="linkTemp.linkName"></el-input>
+                        </el-form-item>
+                        <el-form-item label="友链地址" prop="linkUrl">
+                            <el-input show-word-limit maxlength="100" v-model="linkTemp.linkUrl"></el-input>
+                        </el-form-item>
+                        <el-form-item label="友链说明" prop="linkDesc">
+                            <el-input show-word-limit maxlength="100" type="textarea" v-model="linkTemp.linkDesc" autocomplete="off" :autosize="{ minRows: 3, maxRows: 6 }"></el-input>
+                        </el-form-item>
+                        <el-form-item label="友链状态">
+                            <el-radio-group v-model="linkTemp.linkStatus">
+                                <el-radio :label="0">隐藏</el-radio>
+                                <el-radio :label="1">显示</el-radio>
+                            </el-radio-group>
+                        </el-form-item>
+                        <el-form-item style="text-align: right">
+                            <el-button style="width: 80px" type="info" @click="handleDialogClose">关闭</el-button>
+                            <el-button style="width: 80px" type="success" @click="handleDialogSubmit">确认</el-button>
+                        </el-form-item>
+                    </el-form>
+                </el-drawer>
+                <div class="main-table-top">
+                    <!--搜索-->
+                    <el-input prefix-icon="el-icon-search" v-model="pageQuery.searchStr" placeholder="搜索友链名"
+                              @keyup.enter.native="handlePageGet" style="width: 330px;margin-right: 5px"
+                              show-word-limit maxlength="20"></el-input>
+                    <el-button type="primary" icon="el-icon-search" @click="handlePageGet">搜索</el-button>
+                    <!--新增-->
+                    <el-button type="primary" @click="handleDialogOpen(null)" icon="el-icon-circle-plus-outline">新增</el-button>
+                    <!--删除-->
+                    <el-button type="danger" @click="handleDelete(null)" icon="el-icon-delete">删除</el-button>
+                </div>
+                <!--表格-->
+                <div class="main-table-div">
+                    <el-table :data="pageData.records" height="100%" max-height="100%"
+                              border @selection-change="handleSelectionChange" highlight-current-row
+                              @cell-dblclick="handleDialogOpen">
+                        <el-table-column type="selection" prop="id"></el-table-column>
+                        <el-table-column label="友链名" min-width="180px" prop="linkName">
+                            <template #default="scope">
+                                <span>{{scope.row.linkName}}</span>
+                                <el-tag style="float: right" size="mini" v-if="scope.row.sort!==0"
+                                        closable type="warning" @close="handleCancelTop(scope.row)">
+                                    置顶
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="友链头像" min-width="150px" prop="linkAvatar">
+                            <template #default="scope">
+                                <el-avatar shape="square" :size="100"  :src="scope.row.linkAvatar"></el-avatar>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="友链地址" min-width="250px" prop="linkUrl"></el-table-column>
+                        <el-table-column label="友链描述" min-width="300px" prop="linkDesc"></el-table-column>
+                        <el-table-column label="状态" min-width="60px" prop="linkStatusStr">
+                            <template #default="scope">
+                                <el-tag size="mini" v-if="scope.row.linkStatus === 1" type="success">{{scope.row.linkStatusStr}}</el-tag>
+                                <el-tag size="mini" v-else-if="scope.row.linkStatus === 0" type="info">{{scope.row.linkStatusStr}}</el-tag>
+                                <el-tag size="mini" v-else type="danger">{{scope.row.linkStatusStr}}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="createTime" label="添加时间" min-width="170px"></el-table-column>
+                        <el-table-column align="left" fixed="right" min-width="240px" label="操作">
+                            <template #default="scope">
+                                <div>
+                                    <el-button type="warning" size="mini" @click="handleTop(scope.row)">
+                                        置顶
+                                    </el-button>
+                                    <el-button type="primary" size="mini" @click="handleDialogOpen(scope.row)">
+                                        编辑
+                                    </el-button>
+                                    <el-button type="danger" size="mini" @click="handleDelete(scope.row)">
+                                        删除
+                                    </el-button>
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+                <div class="main-table-bottom">
+                    <!--页码-->
+                    <el-pagination background
+                                   :page-sizes="[10, 20, 50, 100]"
+                                   :current-page="pageData.current"
+                                   :page-size="pageData.size"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   :total="pageData.total"
+                                   @size-change="handleSizeChange"
+                                   @current-change="handleCurrentChange">
+                    </el-pagination>
+                </div>
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            linkDialog: {
+                visible: false,
+                isAdd: false
+            },
+            linkTemp: {
+                id: null,
+                linkName: null,
+                linkUrl: null,
+                linkDesc: null,
+                linkStatus: 1,
+                linkAvatar: null
+            },
+            
+            rules: {
+                linkAvatar: [{required: true, message: '友链头像必填', trigger: 'blur'}],
+                linkName: [
+                    {required: true, message: '友链名必填', trigger: 'blur'},
+                    {min: 1, max: 50, message: '长度为1-50位', trigger: 'blur'}
+                ],
+                linkUrl: [
+                    {required: true, message: '友链地址必填', trigger: 'blur'},
+                    {min: 1, max: 100, message: '长度为1-100位', trigger: 'blur'},
+                    {pattern:/^https?:\/\/([\w-]+(\.[\w-]+)+)(:[0-9]+)?(\/\S*)?$/i,
+                       message: '网址必须以 http:// 或 https:// 开头',trigger: ['blur', 'change']
+                    }
+                ],
+                linkDesc: [{max: 100, message: '长度不能超过100', trigger: 'blur'}],
+            },
+        },
+        mounted() {
+            this.handlePageGet();
+        },
+        methods: {
+            // 插入文件重写
+            insertFile(file){
+                this.linkTemp.linkAvatar = this.fileUrlPrefix + file.id;
+                this.filePageQuery.visible = false;
+            },
+            // 上传头像
+            handleAvatarSuccess(res, file) {
+                if (res.data) {
+                    this.linkTemp.linkAvatar = this.fileUrlPrefix + res.data.id;
+                } else {
+                    this.errorMsg(res.msg)
+                }
+            },
+            // 上传头像前的验证
+            beforeAvatarUpload(file) {
+                const isJPG = file.type === 'image/jpeg' || file.type === 'image/png';
+                const isLt2M = file.size / 1024 / 1024 < 2;
+
+                if (!isJPG) {
+                    this.$message.error('上传头像图片只能是 JPG 或 PNG 格式!');
+                }
+                if (!isLt2M) {
+                    this.$message.error('上传头像图片大小不能超过 2MB!');
+                }
+                return isJPG && isLt2M;
+            },
+
+            // 打开弹窗
+            handleDialogOpen(row) {
+                //新增
+                if (row === null) {
+                    this.linkDialog.isAdd = true;
+                } else {
+                    this.linkDialog.isAdd = false;
+                    this.linkTemp.id = row.id;
+                    this.linkTemp.linkName = row.linkName;
+                    this.linkTemp.linkUrl = row.linkUrl;
+                    this.linkTemp.linkStatus = row.linkStatus;
+                    this.linkTemp.linkDesc = row.linkDesc;
+                    this.linkTemp.linkAvatar = row.linkAvatar;
+                }
+                this.linkDialog.visible = true;
+            },
+            // 关闭弹窗
+            handleDialogClose() {
+                if (!this.linkDialog.isAdd) {
+                    this.linkTemp.id = null;
+                    this.linkTemp.linkName = null;
+                    this.linkTemp.linkUrl = null;
+                    this.linkTemp.linkStatus = 1;
+                    this.linkTemp.linkDesc = null;
+                    this.linkTemp.linkAvatar = null;
+                }
+                this.linkDialog.visible = false;
+            },
+            // 提交弹窗
+            handleDialogSubmit() {
+                if (this.linkDialog.isAdd) {
+                    this.handleAdd();
+                } else {
+                    this.handleUpdate();
+                }
+            },
+            // 新增
+            handleAdd() {
+                this.$refs['dialogForm'].validate((valid) => {
+                    if (valid) {
+                        this.linkTemp.id = null;
+                        //保存
+                        this.$post("link/add", this.linkTemp).then(re => {
+                            if (re.data && re.data.code === 200) {
+                                this.linkDialog.isAdd = false;
+                                this.handleDialogClose();
+                                this.handlePageGet();
+                                this.successMsg("新增成功");
+                            } else {
+                                this.errorMsg(re.data.msg);
+                            }
+                        });
+                    } else {
+                        return false;
+                    }
+                });
+            },
+            // 修改
+            handleUpdate() {
+                this.$refs['dialogForm'].validate((valid) => {
+                    if (valid) {
+                        this.$post("link/update", this.linkTemp).then(re => {
+                            if (re.data && re.data.code === 200) {
+                                this.handleDialogClose();
+                                this.handlePageGet();
+                                this.successMsg("修改成功");
+                            } else {
+                                this.errorMsg(re.data.msg);
+                            }
+                        });
+                    } else {
+                        return false;
+                    }
+                });
+            }
+        }
+    })
+</script>
+
+</body>
+</html>

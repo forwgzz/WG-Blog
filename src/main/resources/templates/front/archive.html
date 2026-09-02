@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${'归档 | ' + base.webTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="keywords" th:content="${'归档,' +base.webTitle}">
+    <meta name="description" th:content="'文章归档：本站共有文章 ' + ${stats.articleTotal} + ' 篇，总计字数 ' + ${stats.wordTotal} + ' 字。'">
+    <meta name="author" th:content="${author.userName}"/>
+    <th:block th:replace="~{front/layout::base-css}"></th:block>
+    <style th:replace="~{front/heatmap::heatmap-style}"></style>
+    <style>
+        [id] {
+            scroll-margin-top: var(--header-height);
+        }
+        .archive-year {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            user-select: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            background: var(--context-bk-color);
+        }
+
+        .archive-year-name {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .archive-year-count {
+            font-size: 14px;
+        }
+
+        .archive-year-icon {
+            font-size: 18px;
+            margin-left: auto;
+        }
+
+        .archive-month {
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            user-select: none;
+            gap: 14px;
+        }
+
+        .archive-month-name {
+            font-size: 20px;
+        }
+
+        .archive-month-count {
+            font-size: 14px;
+        }
+
+        .archive-article {
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <header th:replace="~{front/layout::header}"></header>
+    <div th:replace="~{front/layout::show-text}"></div>
+    <div class="middle-container">
+        <aside v-if="!isMobile" class="aside">
+            <div th:replace="~{front/layout::aside-user}"></div>
+            <div class="aside-card" th:if="${archive != null && archive.years.size() > 0}">
+                <div class="aside-card-top"><i class="el-icon-notebook-2"></i> 目录</div>
+                <el-divider></el-divider>
+                <div class="catalog-content">
+                    <ul>
+                        <th:block th:if="${archive.tops?.size()?:0}">
+                            <li>
+                                <a th:data-target="'置顶'" th:text="'置顶'"></a>
+                            </li>
+                        </th:block>
+                        <th:block th:each="year:${archive.years}">
+                            <li>
+                                <a th:data-target="${year.year}" th:text="${year.year+' 年'}"></a>
+                            </li>
+                            <ul>
+                                <li th:each="month:${year.months}">
+                                    <a th:data-target="${month.year + '-' + month.month}"
+                                       th:text="${#numbers.formatInteger(month.month, 2)+' 月'}"></a>
+                                </li>
+                            </ul>
+                        </th:block>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+        <main id="main" class="main">
+            <!-- 归档热力图 -->
+            <div class="main-card article-info-header">
+                <div class="article-info-title"><i class="el-icon-data-analysis"></i> 文章归档</div>
+                <div>
+                    <p>本站共有文章 <span style="font-weight: bold" th:text="${stats.articleTotal}"></span> 篇，
+                        <th:block th:if="${archive?.tops?.size()?:0}">
+                            其中置顶文章 <span style="font-weight: bold" th:text="${archive.tops.size()}"></span> 篇，
+                        </th:block>
+                        总计字数 <span style="font-weight: bold"
+                                       th:text="${#numbers.formatDecimal(stats.wordTotal / 1000.0, 1, 1)+'k'}"></span>
+                        字。
+                    </p>
+                </div>
+                <div th:replace="~{front/heatmap::heatmap}"></div>
+            </div>
+            <!-- 置顶 -->
+            <th:block th:if="${archive?.tops?.size()?:0}">
+                <div class="main-card">
+                    <div id="置顶" class="archive-year" @click="foldYear">
+                        <span class="archive-year-name" >置顶</span>
+                        <span class="archive-year-count" th:text="${'('+archive.tops.size()+' 篇文章)'}"></span>
+                        <span class="archive-year-icon el-icon-arrow-down" id="置顶-icon"></span>
+                    </div>
+                </div>
+                <div id="置顶-months">
+                    <div class="main-card">
+                        <div class="archive-article" th:each="article,articleStat:${archive.tops}">
+                            <a th:href="'/article/'+${article.id}">
+                                <!--标题-->
+                                <div>
+                                    <span style="font-size: 24px" th:utext="${article.articleTitle}"></span>
+                                </div>
+                                <!--摘要-->
+                                <span th:utext="${article.articleAbstract}"></span>
+                            </a>
+                            <div class="article-card--more">
+                                <div class="article-card-tags">
+                                    <i class="el-icon-collection"></i>
+                                    <span class="common-tag category-tag">
+                                        <a th:href="'/category/'+${article.categoryId}" th:text="${article.categoryName}"></a>
+                                    </span>
+                                    <th:block th:if="${article.tagList != null && article.tagList.size > 0}">
+                                        <i class="el-icon-collection-tag" ></i>
+                                        <span th:each="tag:${article.tagList}" class="common-tag">
+                                            <a th:href="'/tag/'+${tag.id}" th:text="${tag.tagName}"/>
+                                        </span>
+                                    </th:block>
+                                </div>
+                                <div class="article-card-time">
+                                    <i class="el-icon-date"></i><span th:text="${#temporals.format(article?.createTime, 'yyyy-MM-dd HH:mm')}"></span>
+                                    <i class="el-icon-document"></i><span th:text="${article?.wordCount}"></span>
+                                    <i class="el-icon-view"></i><span th:text="${article?.viewCount}"></span>
+                                    <i class="el-icon-chat-dot-round"></i><span th:text="${article?.commentOpen == 1 ? article?.commentCount : 0}"></span>
+                                </div>
+                            </div>
+                            <el-divider th:if="${articleStat.index < archive.tops.size() - 1}"></el-divider>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+            <!-- 归档 -->
+            <th:block th:if="${archive != null && archive.years.size() > 0}" th:each="year:${archive.years}">
+                <div class="main-card">
+                    <div th:id="${year.year}" class="archive-year" @click="foldYear">
+                        <span class="archive-year-name" th:text="${year.year+' 年'}"></span>
+                        <span class="archive-year-count" th:text="${'('+year.total+' 篇文章)'}"></span>
+                        <span class="archive-year-icon el-icon-arrow-down" th:id="${year.year+'-icon'}"></span>
+                    </div>
+                </div>
+                <div th:id="${year.year+'-months'}">
+                    <div class="main-card" th:each="month:${year.months}">
+                        <div class="archive-month" th:id="${month.year+'-'+month.month}">
+                            <i class="el-icon-date archive-month-name"><span
+                                    th:text="${' '+#numbers.formatInteger(month.month, 2)+' 月'}"></span></i>
+                            <span class="archive-month-count" th:text="${'('+month.articles.size()+' 篇)'}"></span>
+                        </div>
+                        <div class="archive-article" th:each="article,articleStat:${month.articles}">
+                            <a th:href="'/article/'+${article.id}">
+                                <!--标题-->
+                                <div>
+                                    <span style="font-size: 24px" th:utext="${article.articleTitle}"></span>
+                                </div>
+                                <!--摘要-->
+                                <span th:utext="${article.articleAbstract}"></span>
+                            </a>
+                            <div class="article-card--more">
+                                <div class="article-card-tags">
+                                    <i class="el-icon-collection"></i>
+                                    <span class="common-tag category-tag">
+                                        <a th:href="'/category/'+${article.categoryId}" th:text="${article.categoryName}"></a>
+                                    </span>
+                                    <th:block th:if="${article.tagList != null && article.tagList.size > 0}">
+                                        <i class="el-icon-collection-tag" ></i>
+                                        <span th:each="tag:${article.tagList}" class="common-tag">
+                                            <a th:href="'/tag/'+${tag.id}" th:text="${tag.tagName}"/>
+                                        </span>
+                                    </th:block>
+                                </div>
+                                <div class="article-card-time">
+                                    <!-- heatmap-data 定位 取id -->
+                                    <i class="el-icon-date"></i><span class="heatmap-data" th:id="${#temporals.format(article?.createTime, 'yyyy-MM-dd')}" th:text="${#temporals.format(article?.createTime, 'yyyy-MM-dd HH:mm')}"></span>
+                                    <i class="el-icon-document"></i><span th:text="${article?.wordCount}"></span>
+                                    <i class="el-icon-view"></i><span th:text="${article?.viewCount}"></span>
+                                    <i class="el-icon-chat-dot-round"></i><span th:text="${article?.commentCount}"></span>
+                                </div>
+                            </div>
+                            <el-divider th:if="${articleStat.index < month.articles.size() - 1}"></el-divider>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+
+        </main>
+    </div>
+    <footer th:replace="~{front/layout::footer}"></footer>
+</div>
+</body>
+<th:block th:replace="~{front/layout::base-js}"></th:block>
+<script th:src="@{/public/js/heatmap-utils.js}"></script>
+
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [FrontUtilsMixin, HeatmapUtilsMixin],
+        data: {},
+        computed: {},
+        mounted() {
+        },
+        methods: {
+            // 重写
+            getHeatmapData() {
+                this.heatmapDataMap = {};
+                // 获取所有 heatmap-data
+                const elementList = document.querySelectorAll('.heatmap-data');
+                if(!elementList) return;
+                elementList.forEach(element => {
+                    // 获取id值
+                    let id = element.id;
+                    let count = this.heatmapDataMap[id];
+                    if(count){
+                        this.heatmapDataMap[id] = count + 1;
+                    }else {
+                        this.heatmapDataMap[id] = 1;
+                    }
+                });
+            },
+            // 折叠年份
+            foldYear(event) {
+                const year = event.currentTarget.id;
+                // 通过id= year+'-icon' 查询
+                const icon = document.getElementById(year + '-icon');
+                const months = document.getElementById(year + '-months');
+                if (!icon || !months) return
+                if (icon.classList.contains('el-icon-arrow-down')) {
+                    icon.classList.remove('el-icon-arrow-down');
+                    icon.classList.add('el-icon-arrow-right');
+                    months.style.display = 'none';
+                } else {
+                    icon.classList.remove('el-icon-arrow-right');
+                    icon.classList.add('el-icon-arrow-down');
+                    months.style.display = 'block';
+                }
+            },
+        }
+    })
+</script>
+</html>

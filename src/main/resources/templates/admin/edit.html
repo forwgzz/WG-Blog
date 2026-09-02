@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='文章发布'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>
+    <link rel="stylesheet" th:href="@{/public/vditor/dist/index.css}"/>
+    <style>
+        :root {
+            --vditor-div-height: calc(100% - 180px);
+        }
+        .vditor-div {
+            height: var(--vditor-div-height) !important;
+            box-sizing: border-box;
+        }
+        .el-select {
+            width: 100%;
+        }
+        vditor-wysiwyg__block[data-type="code-block"].vditor-wysiwyg__pre[style="display: block;"] + .vditor-wysiwyg__preview {
+            display: none;
+        }
+        .vditor-ir__node--expand[data-type="code-block"] .vditor-ir__preview {
+            display: none;
+        }
+        .vditor--fullscreen {
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+    </style>
+</head>
+<body>
+<div id="app" th:with="menuTitle='文章发布'" v-cloak>
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}" ></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <!--更多信息-->
+                <el-drawer :visible.sync="articleInfo.moreVisible" title="文章保存" size="50%" direction="rtl">
+                    <el-form  :rules="rules" style="margin-left: 40px;margin-right: 40px" :model="articleInfo" label-position="left" label-width="80px">
+                        <el-form-item label="封面" prop="articleCover">
+                            <el-row :gutter="10">
+                                <el-col :span="16" v-if="articleInfo.articleCover">
+                                    <el-image :src="articleInfo.articleCover" :preview-src-list="[articleInfo.articleCover]"
+                                              style="width: 100%;border-radius: 5px">
+                                    </el-image>
+                                </el-col>
+                                <el-col :span="7">
+                                    <div style="margin-bottom: 5px">
+                                        <el-button type="primary" @click="selectCover">选择封面</el-button>
+                                    </div>
+                                    <div>
+                                        <el-button type="danger" v-if="articleInfo.articleCover" @click="articleInfo.articleCover=''">删除封面</el-button>
+                                    </div>
+                                </el-col>
+                            </el-row>
+                        </el-form-item>
+                        <el-form-item label="开启评论" prop="commentOpen">
+                            <el-switch v-model="articleInfo.commentOpen"
+                                       :active-value="1" :inactive-value="0"></el-switch>
+                        </el-form-item>
+                        <el-form-item label="文章状态" prop="articleStatus">
+                            <el-radio-group v-model="articleInfo.articleStatus">
+                                <el-radio :label="0">草稿</el-radio>
+                                <el-radio :label="1">发布</el-radio>
+                            </el-radio-group>
+                        </el-form-item>
+                        <el-form-item style="text-align: right">
+                            <el-button style="width: 80px" type="info" @click="articleInfo.moreVisible=false">关闭</el-button>
+                            <el-button style="width: 80px" type="success" @click="articleSubmit">确认</el-button>
+                        </el-form-item>
+                    </el-form>
+
+                </el-drawer>
+                <el-form :rules="rules" style="margin-top: 5px;height:calc(100% - 5px)" ref="articleForm"
+                         :model="articleInfo" label-position="left" label-width="40px">
+                    <!-- 标题 摘要 -->
+                    <el-row :gutter="15" ref="textareaRowRef">
+                        <el-col :span="12">
+                            <el-form-item label="标题" prop="articleTitle" label-width="52px">
+                                <el-input type="textarea" v-model="articleInfo.articleTitle" placeholder="请输入标题"
+                                          maxlength="50" autocomplete="off" :autosize="{ minRows: 2, maxRows: 4 }"
+                                          show-word-limit></el-input>
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12">
+                            <el-form-item label="摘要">
+                                <el-input v-model="articleInfo.articleAbstract" type="textarea" maxlength="300" placeholder="请输入摘要"
+                                          ref="textareaRef" show-word-limit :autosize="{ minRows: 2, maxRows: 4 }"
+                                ></el-input>
+                            </el-form-item>
+                        </el-col>
+                    </el-row>
+                    <!-- 分类 标签 -->
+                    <el-row :gutter="15">
+                        <el-col :span="8">
+                            <el-form-item label="分类" prop="categoryId" label-width="52px">
+                                <el-select v-model="articleInfo.categoryId" filterable placeholder="请选择分类" clearable value="">
+                                    <el-option v-for="item in categorySelects" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                                </el-select>
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="16">
+                            <el-form-item label="标签">
+                                <el-select v-model="articleTagList" multiple filterable allow-create clearable
+                                           placeholder="请输入标签（可多选）" value="" @change="articleTagsChange">
+                                    <el-option
+                                            v-for="tag in tagSelects"
+                                            :key="tag.value"
+                                            :label="tag.label"
+                                            :value="tag.value"
+                                    ></el-option>
+                                </el-select>
+                            </el-form-item>
+                        </el-col>
+                    </el-row>
+                    <!--编辑器-->
+                    <el-row class="vditor-div" id="vditor" v-cloak></el-row>
+                    <el-row :gutter="15" style="margin-top: 5px">
+                        <el-col :span="24" style="text-align: right;">
+                            <el-button type="success" @click="articleSave">保存文章</el-button>
+                        </el-col>
+                    </el-row>
+                </el-form>
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+<script th:src="@{/public/vditor/dist/my-vditor.js}"></script>
+<script th:src="@{/public/vditor/dist/index.min.js}"></script>
+
+<script>
+
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            // 编辑文章id
+            articleId: "[[${base.articleId}]]",
+            articleTagList: [],
+            articleInfo: {
+                moreVisible: false,
+                id: null,
+                articleTitle: '',
+                articleAbstract: null,
+                articleCover: null,
+                articleContent: '',
+                articleCatalog: '',
+                articleMarkdown: '',
+                articleStatus: 0,
+                commentOpen: 1,
+                categoryId: null,
+                tagIdList: [],
+                newTagNameList: []
+            },
+
+            myVditor: {},
+            rules: {
+                articleTitle: [{required: true, max: 50, message: '标题必填', trigger: 'blur'}],
+                categoryId: [
+                    {required: true, message: '分类必填', trigger: 'blur'},
+                ]
+            },
+            textareaObserver: null,
+            vditorHeightLevel: 1,
+        },
+        computed: {},
+        mounted() {
+            this.getCategorySelects();
+            this.getTagSelects();
+            this.getFileTypeSelects();
+            this.getArticleInfo();
+            this.$nextTick(() => {
+                this.textareaHeightChange();
+            });
+        },
+        beforeDestroy() {
+            if (this.textareaObserver) {
+                this.textareaObserver.disconnect();
+            }
+        },
+        methods: {
+            // 获取文章信息
+            getArticleInfo() {
+                if (this.isBlank(this.articleId)) {
+                    this.initVditor();
+                    return;
+                }
+                this.$post(this.adminPath + "/article/info", {id: this.articleId}).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        this.articleInfo = re.data.data;
+                        Vue.set(this.articleInfo, 'moreVisible', false);
+                        Vue.set(this.articleInfo, 'newTagNameList', []);
+                        if (re.data.data.tagList) {
+                            this.articleTagList =  re.data.data.tagList.map(tag => tag.id);
+                        }
+                        this.initVditor();
+                    } else {
+                        window.location.href = this.adminPath + "/article/edit";
+                    }
+                }).catch(function (error) {
+                    window.location.href = this.adminPath + "/article/edit";
+                });
+            },
+
+            // 更新vditor高度
+            updateVditorHeight(textareaHeight) {
+                /*75 96 117*/
+                if (textareaHeight > 110) {
+                    if (this.vditorHeightLevel !== 3) {
+                        document.documentElement.style.setProperty("--vditor-div-height", "calc(100% - 220px)");
+                        this.vditorHeightLevel = 3;
+                    }
+                } else if (textareaHeight > 90) {
+                    if (this.vditorHeightLevel !== 2) {
+                        document.documentElement.style.setProperty("--vditor-div-height", "calc(100% - 200px)");
+                        this.vditorHeightLevel = 2;
+                    }
+                } else if (this.vditorHeightLevel !== 1) {
+                    document.documentElement.style.setProperty("--vditor-div-height", "calc(100% - 180px)");
+                    this.vditorHeightLevel = 1;
+                }
+            },
+            // 摘要高度监听
+            textareaHeightChange() {
+                const textarea = this.$refs.textareaRowRef.$el;
+                if (!textarea) return;
+
+                this.textareaObserver = new MutationObserver((mutationsList) => {
+                    for (let mutation of mutationsList) {
+                        if (mutation.type === 'childList' || mutation.type === 'attributes') {
+                            this.updateVditorHeight(textarea.clientHeight);
+                        }
+                    }
+                });
+                this.textareaObserver.observe(textarea, {childList: true, subtree: true, attributes: true});
+                this.updateVditorHeight(textarea.clientHeight);
+            },
+
+            // 编辑器初始化
+            initVditor() {
+                const self = this;
+                this.myVditor = new Vditor('vditor', {
+                    cdn: cdn,
+                    width: "100%",
+                    height: "100%",
+                    mode: "sv", // sv：分屏预览 ir：即时渲染 wysiwyg：所见即所得
+                    icon: "material",
+                    tab: "    ",
+                    placeholder: "请开始你的写作！",
+                    toolbarConfig: {
+                        pin: true,// 固定工具栏
+                    },
+                    outline: {
+                        enable: true// 显示大纲
+                    },
+                    counter: {
+                        enable: true,
+                        type: "text" //字数统计
+                    },
+                    hint: {
+                        emojiPath: emojiPath,
+                        emoji: Object.assign({}, customEmoji, {
+                            "angry": "😠",
+                            "anguished": "😧",
+                            "blush": "😊",
+                            "laughing": "😆",
+                            "cry": "😢",
+                            "disappointed": "😞",
+                            "disappointed_relieved": "😥",
+                            "thinking": "🤔",
+                            "dizzy_face": "😵",
+                            "drooling_face": "🤤",
+                            "expressionless": "😑",
+                            "face_with_head_bandage": "🤕",
+                            "face_with_thermometer": "🤒",
+                            "flushed": "😳",
+                            "frowning": "😦",
+                            "frowning_face": "☹️",
+                            "grimacing": "😬",
+                            "grin": "😁",
+                            "grinning": "😀",
+                            "heart_eyes": "😍",
+                            "hugs": "🤗",
+                            "hushed": "😯",
+                            "joy": "😂",
+                            "kissing": "😗",
+                            "kissing_closed_eyes": "😚",
+                            "kissing_heart": "😘",
+                            "lying_face": "🤥",
+                            "mask": "😷",
+                            "pensive": "😔",
+                            "persevere": "😣",
+                            "pout": "😡",
+                            "sleeping": "😴",
+                            "sleepy": "😪",
+                            "slightly_frowning_face": "🙁",
+                            "slightly_smiling_face": "🙂",
+                            "point_down": "👇",
+                            "point_left": "👈",
+                            "point_right": "👉",
+                            "point_up": "☝️",
+                            "point_up_2": "👆",
+                            "eyes": "👀",
+                            "dragon": "🐉",
+                            "dragon_face": "🐲",
+
+                            "file_folder": "📁",
+                            "+1": "👍",
+                            "-1": "👎",
+                            "100": "💯",
+                            "grey_exclamation": "❕",
+                            "grey_question": "❔",
+                            "heartbeat": "💓",
+                            "heartpulse": "💗",
+                            "hearts": "♥️",
+                            "heavy_check_mark": "✔️",
+                            "heavy_division_sign": "➗",
+                            "heavy_dollar_sign": "💲",
+                            "heavy_exclamation_mark": "❗️",
+                            "heavy_heart_exclamation": "❣️",
+                            "heavy_minus_sign": "➖",
+                            "heavy_multiplication_x": "✖️",
+                            "heavy_plus_sign": "➕",
+
+                            "arrow_backward": "◀️",
+                            "arrow_double_down": "⏬",
+                            "arrow_double_up": "⏫",
+                            "arrow_down": "⬇️",
+                            "arrow_down_small": "🔽",
+                            "arrow_forward": "▶️",
+                            "arrow_heading_down": "⤵️",
+                            "arrow_heading_up": "⤴️",
+                            "arrow_left": "⬅️",
+                            "arrow_lower_left": "↙️",
+                            "arrow_lower_right": "↘️",
+                            "arrow_right": "➡️",
+                            "arrow_right_hook": "↪️",
+                            "arrow_up": "⬆️",
+                            "arrow_up_down": "↕️",
+                            "arrow_up_small": "🔼",
+                            "arrow_upper_left": "↖️",
+                            "arrow_upper_right": "↗️",
+                            "arrows_clockwise": "🔃",
+                            "arrows_counterclockwise": "🔄",
+                        })
+                    },
+                    upload: {
+                        /*accept: 'image/!*,.mp3, .wav, .rar',*/
+                        url: self.fileUploadUrl,
+                        multiple: false,
+                        fieldName: 'file',
+                        max: 50 * 1024 * 1024,// 最大50m
+                        filename(name) {
+                            return name.replace(/[^(a-zA-Z0-9\u4e00-\u9fa5\.)]/g, '').replace(/[\?\\/:|<>\*\[\]\(\)\$%\{\}@~]/g, '').replace('/\\s/g', '')
+                        },
+                        success: (editor, msg) => {
+                            var data = JSON.parse(msg);
+                            if (data.code === 200) {
+                                self.insertFile(data.data)
+                            } else {
+                                self.errorMsg(data.msg);
+                            }
+                            self.myVditor.vditor.tip.hide();
+                        },
+                        error: (msg) => {
+                            self.errorMsg(msg);
+                        }
+                    },
+                    preview: {
+                        hljs: hljs
+                    },
+                    toolbar: [
+                        "emoji",
+                        "headings",
+                        "bold",
+                        "italic",
+                        "strike",
+                        "link",
+                        "|",
+                        "list",
+                        "ordered-list",
+                        "check",
+                        "outdent",
+                        "indent",
+                        "|",
+                        "quote",
+                        "line",
+                        "code",
+                        "inline-code",
+                        "insert-before",
+                        "insert-after",
+                        "|",
+                        "table",
+                        "upload",
+                        {
+                            name: 'file',
+                            tipPosition: 'ne',
+                            tip: '素材库',
+                            className: 'right',
+                            icon: '<svg t="1743599599743" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2671" width="32" height="32"><path d="M947.2 998.4H76.8c-42.496 0-76.8-34.304-76.8-76.8V179.2h947.2c42.496 0 76.8 34.304 76.8 76.8v665.6c0 42.496-34.304 76.8-76.8 76.8zM51.2 230.4v691.2c0 14.336 11.264 25.6 25.6 25.6h870.4c14.336 0 25.6-11.264 25.6-25.6V256c0-14.336-11.264-25.6-25.6-25.6H51.2z" p-id="2672"></path><path d="M753.152 230.4H0V102.4C0 59.904 34.304 25.6 76.8 25.6h418.304c34.304 0 66.56 13.312 90.624 37.376L753.152 230.4zM51.2 179.2h578.048l-79.872-79.872c-14.336-14.336-33.792-22.528-54.272-22.528H76.8c-14.336 0-25.6 11.264-25.6 25.6v76.8z" p-id="2673"></path></svg>',
+                            click() {
+                                self.handleFileOpen()
+                            }
+                        },
+                        "|",
+                        "undo",
+                        "redo",
+                        "|",
+                        "fullscreen",
+                        "edit-mode",
+                        {
+                            name: "more",
+                            toolbar: [
+                                "both",
+                                "code-theme",
+                                "content-theme",
+                                "export",
+                                "outline",
+                                "preview",
+                                "devtools",
+                                "info",
+                                "help",
+                            ],
+                        },
+                    ],
+                    cache: {
+                        enable: false,
+                    },
+                    after: () => {
+                        /*渲染完成*/
+                        if (!self.isBlank(self.articleInfo.articleMarkdown)) {
+                            self.myVditor.setValue(self.articleInfo.articleMarkdown)
+                        }
+                    },
+                    // 编辑器失去焦点后的回调函数
+                    blur(value) {
+                        self.articleInfo.articleMarkdown = value;
+                    }
+                })
+            },
+
+            // 标签修改
+            articleTagsChange() {
+                this.articleInfo.tagIdList = [];
+                this.articleInfo.newTagNameList = [];
+                this.articleTagList.forEach(id => {
+                    if (this.tagSelects.some(tag => tag.value === id)) {
+                        // 原有标签
+                        this.articleInfo.tagIdList.push(id);
+                    } else {
+                        // 新增标签
+                        this.articleInfo.newTagNameList.push(id);
+                    }
+                })
+            },
+            // 插入素材文件
+            insertFile(file) {
+                // 插入封面
+                if (this.articleInfo.moreVisible) {
+                    if(file.fileType!=="image"){
+                        this.warnMsg("请选择图片文件")
+                        return
+                    }
+                    this.articleInfo.articleCover = this.fileUrlPrefix + file.id;
+                    this.filePageQuery.visible = false;
+                } else {
+                    // 插入文章
+                    const text = "[" + file.fileName + "](" + this.fileUrlPrefix + file.id + " \"" + file.fileName + "\")";
+                    // 图片
+                    if (file.fileType === "image") {
+                        this.myVditor.insertValue(" !" + text);
+                    } else {
+                        this.myVditor.insertValue(text);
+                    }
+                    this.filePageQuery.visible = false;
+                }
+            },
+
+            // 文章保存
+            articleSave() {
+                this.$refs['articleForm'].validate((valid) => {
+                    if (valid) {
+                        if (this.isBlank(this.articleInfo.articleMarkdown)) {
+                            this.warnMsg("文章内容不能为空");
+                            return;
+                        }
+                        this.articleInfo.moreVisible = true;
+                        // 获取封面
+                        if (this.articleInfo.articleCover === null) {
+                            // vditor获取预览区域
+                            const previews = document.querySelectorAll('.vditor-reset');
+                            for (const preview of previews) {
+                                if (preview.offsetParent && preview.className === 'vditor-reset') {
+                                    // 查找所以图片
+                                    const images = preview.querySelectorAll('img');
+                                    for (const image of images) {
+                                        // 过滤表情
+                                        if (image.className.includes("emoji")) {
+                                            continue;
+                                        }
+                                        // 取第一张做封面
+                                        this.articleInfo.articleCover = image.getAttribute("src");
+                                        break;
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                });
+            },
+            // 选择封面
+            selectCover() {
+                this.filePageQuery.visible = true;
+                this.filePageQuery.fileTypes = ['image'];
+                this.filePageQuery.tab = "image";
+                this.handleFilePageGet();
+            },
+            // 文章提交
+            articleSubmit() {
+                this.articleInfo.articleMarkdown = this.myVditor.getValue();
+                this.articleInfo.articleContent = this.myVditor.getHTML();
+                // 获取标签
+                this.articleTagsChange();
+                this.$post(this.adminPath + "/article/" + (this.isBlank(this.articleId) ? "add" : "update"), this.articleInfo).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        const msg = this.articleInfo.articleStatus === 0 ? "保存成功" : "发布成功"
+                        if (this.articleInfo.newTagNameList.length > 0) {
+                            this.removeStorage(tagSelectsKey);
+                            this.getTagSelects()
+                        }
+                        this.$alert("", msg, {
+                            closeOnClickModal: true,
+                            confirmButtonText: '确定',
+                            callback: action => {
+                                window.location.href = this.adminPath + "/article/edit/" + re.data.data.id;
+                            }
+                        })
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                });
+            },
+        }
+    })
+</script>
+
+</body>
+</html>

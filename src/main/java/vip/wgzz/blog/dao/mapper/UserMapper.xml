@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="vip.wgzz.blog.dao.UserDao">
+
+    <update id="updateLoginUser">
+        UPDATE tb_user
+        SET login_time = #{user.loginTime},
+            login_ip = #{user.loginIp},
+            login_address = #{user.loginAddress},
+            last_login_time = #{user.lastLoginTime},
+            last_login_ip = #{user.lastLoginIp},
+            last_login_address = #{user.lastLoginAddress},
+            login_nums = login_nums + 1
+        WHERE id = #{user.id}
+    </update>
+
+</mapper>

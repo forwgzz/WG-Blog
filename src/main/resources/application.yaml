@@ -1,0 +1,111 @@
+server:
+  port: 80
+  servlet:
+    context-path: /
+    session:
+      timeout: 3600s
+  tomcat:
+    uri-encoding: UTF-8
+  compression:
+    enabled: true
+    # 最小压缩阈值，避免小文件压缩后体积反而增大
+    min-response-size: 1KB
+    # 需要动态压缩的 MIME 类型（仅文本类，切勿添加图片/视频/字体）
+    mime-types:
+      - application/json
+      - application/xml
+      - text/html
+      - text/css
+      - text/javascript
+      - application/javascript
+      - image/svg+xml
+      - application/wasm
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: ${MAIL_PORT:465}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    from: ${MAIL_FROM:}
+    from-name: ${MAIL_FROM_NAME:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.ssl.enable: true
+      mail.smtp.starttls.required: true
+    default-encoding: UTF-8
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 100MB
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    cache: false
+  Jackson:
+    # 格式化返回时间 yyyy-MM-dd HH:mm:ss
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+  security:
+    filter:
+      dispatcher-types: REQUEST,FORWARD,INCLUDE,ERROR,ASYNC
+  datasource:
+    # mysql5.x 配置，高版本需要加useSSL=false
+    # mysql8.0 需要加&useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:blog}?zeroDateTimeBehavior=convertToNull&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:123456}
+  data:
+    redis:
+      # 是否开启redis 默认关闭
+      open: ${REDIS_OPEN:false}
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:123456}
+  web:
+    resources:
+      cache:
+        # 浏览器强缓存策略
+        cachecontrol:
+          # 内容哈希指纹 缓存 1年
+          max-age: 365d
+          must-revalidate: false
+          no-cache: false
+          no-store: false
+        use-last-modified: true
+      chain:
+        strategy:
+          content:
+            # 根据文件内容生成 MD5 哈希
+            enabled: true
+            paths: /**
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    #log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  mapper-locations: classpath*:vip/wgzz/blog/**/mapper/*.xml
+
+storage:
+  # 存储类型 默认local本地  qiniu七牛  tencent腾讯（常量定义：BaseConstants.StorageType）
+  storage-type: ${STORAGE_TYPE:local}
+
+  local:
+    path: ./file/
+
+  qiniu:
+    access-key: ${QINIU_ACCESS_KEY:}
+    secret-key: ${QINIU_SECRET_KEY:}
+    region: ${QINIU_REGION:}
+    bucket: ${QINIU_BUCKET:}
+    domain: ${QINIU_DOMAIN:}
+
+  tencent:
+    secret-id: ${TENCENT_ACCESS_ID:}
+    secret-key: ${TENCENT_SECRET_KEY:}
+    region: ${TENCENT_REGION:}
+    bucket: ${TENCENT_BUCKET:}
+
+# 网站地图保存目录
+sitemap-path: ./file/

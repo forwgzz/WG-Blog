@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="vip.wgzz.blog.dao.TagDao">
+
+    <select id="getTagWithArticleNumList" resultType="vip.wgzz.blog.model.po.TagPO">
+        SELECT
+            t.id,
+            t.tag_name AS tagName,
+            COALESCE(cnt.number, 0) AS number
+        FROM tb_tag t
+        LEFT JOIN (
+            SELECT atr.tag_id, COUNT(*) AS number
+            FROM tb_article_tag_rel atr
+                     INNER JOIN tb_article a ON atr.article_id = a.id
+            WHERE a.article_status = 1
+            GROUP BY atr.tag_id
+        ) cnt ON t.id = cnt.tag_id
+        ORDER BY t.sort DESC, t.id DESC;
+    </select>
+
+</mapper>

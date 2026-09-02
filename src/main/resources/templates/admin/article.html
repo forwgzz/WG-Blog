@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-cn" xmlns:th="http://www.thymeleaf.org" th:with="menuTitle='文章管理'">
+<head>
+    <meta charset="UTF-8">
+    <title><th:block th:text="${base.webTitle}+' - 管台 | '+${menuTitle}"></th:block></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <th:block th:replace="~{admin/layout::base-css}"></th:block>
+    <link rel="stylesheet" th:href="@{/public/css/a11y-dark.min.css}">
+    <style>
+
+    </style>
+</head>
+
+
+<style>
+
+    .article-content {
+    }
+    .article-content .emoji {
+        cursor: auto;
+        max-width: 20px;
+        vertical-align: sub;
+    }
+    .article-content .hljs {
+        border-radius: 5px;
+    }
+    .article-content > table, .article-content > table th, .article-content > table td {
+        border: 1px solid black;
+    }
+    .article-content table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .article-content .hljs-ln-numbers {
+        color: #606266;
+        text-align: right;
+        padding-right: 10px !important;
+    }
+    .article-content pre {
+        position: relative;
+    }
+    .article-content .copy-button {
+        color: white;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+    .article-content .copy-button:hover {
+        color: #409EFF;
+    }
+    .article-content .copy-button.active {
+        color: #409EFF;
+    }
+    .article-content img {
+        max-width: 100%;
+    }
+</style>
+<body>
+<div id="app" v-cloak>
+    <el-container class="container_100">
+        <el-aside th:replace="~{admin/layout::aside(menuTitle=${menuTitle})}" ></el-aside>
+        <el-container class="container_100">
+            <el-header th:replace="~{admin/layout::header(menuTitle=${menuTitle})}"></el-header>
+            <el-main class="el-main-admin">
+                <!--预览-->
+                <el-dialog :title="previewArticleTitle" :visible.sync="previewShow" center width="80%"
+                           @close="handleDialogClose">
+                    <!--内容-->
+                    <a class="link-a blue-hover" target="_blank" :href="'/article/'+previewArticleId"><i class="el-icon-view"></i> 完整预览</a>
+                    <div class="article-content" id="previewArticle"></div>
+                </el-dialog>
+
+                <!--搜索-->
+                <div class="main-table-top">
+                    <!--搜索-->
+                    <el-input placeholder="搜索标题" v-model="pageQuery.searchStr" class="input-with-select"
+                              @keyup.enter.native="handlePageGet" style="width: 485px;margin-right: 5px"
+                              show-word-limit clearable maxlength="20">
+                        <el-select v-model="pageQuery.categoryId" style="width: 155px;"  clearable
+                                   slot="prepend" collapse-tags placeholder="分类" value="">
+                            <el-option v-for="item in categorySelects" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                        </el-select>
+                    </el-input>
+                    <el-button type="primary" icon="el-icon-search" @click="handlePageGet">搜索</el-button>
+                    <!--新增-->
+                    <el-button type="primary" @click="addArticle" icon="el-icon-circle-plus-outline">新增</el-button>
+                    <!--删除-->
+                    <el-button type="danger" @click="handleDelete(null)" icon="el-icon-delete">删除</el-button>
+                </div>
+                <!--表格-->
+                <div class="main-table-div">
+                    <el-table :data="pageData.records" height="100%" max-height="100%"
+                              border @selection-change="handleSelectionChange" highlight-current-row
+                              @cell-dblclick="" ref="tableRef" >
+                        <el-table-column type="selection" prop="id"></el-table-column>
+                        <el-table-column label="ID" min-width="40px" prop="id"></el-table-column>
+                        <el-table-column label="标题" min-width="250px" prop="articleTitle">
+                            <template #default="scope">
+                                <div @click="handleDialogOpen(scope.row)" class="blue-hover">
+                                    <i class="el-icon-view"></i>
+                                    <span>{{scope.row.articleTitle}}</span>
+                                    <el-tag style="float: right" size="mini" v-if="scope.row.sort!==0"
+                                            closable type="warning" @close="handleCancelTop(scope.row)">
+                                        置顶
+                                    </el-tag>
+                                </div>
+                                <el-image v-if="scope.row.articleCover" style="max-width: 250px" :src="scope.row.articleCover"
+                                          :preview-src-list="[scope.row.articleCover]"
+                                          @load="handleImageLoad"></el-image>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="分类/标签" min-width="150" prop="categoryName">
+                            <template #default="scope">
+                                <el-tag size="mini">{{scope.row.categoryName}}</el-tag>
+                                <el-tag size="mini" v-for="tag in scope.row.tagList" :key="tag.id" type="warning">{{tag.tagName}}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="访问量" min-width="65px" prop="viewCount"></el-table-column>
+                        <el-table-column label="评论数" min-width="65px" prop="commentCount"></el-table-column>
+                        <el-table-column label="状态" min-width="60px" prop="articleStatusStr">
+                            <template #default="scope">
+                                <el-tag size="mini" v-if="scope.row.articleStatus === 1" type="success">{{scope.row.articleStatusStr}}</el-tag>
+                                <el-tag size="mini" v-else-if="scope.row.articleStatus === 0" type="info">{{scope.row.articleStatusStr}}</el-tag>
+                                <el-tag size="mini" v-else type="danger">{{scope.row.articleStatusStr}}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="添加时间" min-width="170px" prop="createTime"></el-table-column>
+                        <el-table-column label="操作" min-width="300px" align="left" fixed="right">
+                            <template #default="scope">
+                                <div>
+                                    <el-button type="warning" size="mini" @click="handleTop(scope.row)">
+                                        置顶
+                                    </el-button>
+                                    <el-button type="primary" size="mini" @click="updateArticleStatus(scope.row)">
+                                        {{scope.row.articleStatus === 1 ? "草稿" : "发布"}}
+                                    </el-button>
+                                    <el-button type="primary" size="mini" @click="handleArticleEdit(scope.row)">
+                                        编辑
+                                    </el-button>
+                                    <el-button type="danger" size="mini" @click="handleDelete(scope.row)">
+                                        删除
+                                    </el-button>
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+                <div class="main-table-bottom">
+                    <!--页码-->
+                    <el-pagination background
+                                   :page-sizes="[10, 20, 50, 100]"
+                                   :current-page="pageData.current"
+                                   :page-size="pageData.size"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   :total="pageData.total"
+                                   @size-change="handleSizeChange"
+                                   @current-change="handleCurrentChange">
+                    </el-pagination>
+                </div>
+            </el-main>
+            <el-footer th:replace="~{admin/layout::footer}"></el-footer>
+        </el-container>
+    </el-container>
+</div>
+<th:block th:replace="~{admin/layout::base-js}"></th:block>
+<script th:src="@{/public/js/highlight.min.js}"></script>
+<script th:src="@{/public/js/highlight-line-numbers.min.js}"></script>
+<script>
+    new Vue({
+        el: "#app",
+        mixins: [AdminUtilsMixin],
+        data: {
+            pageQuery: {
+                categoryId: null,
+            },
+
+            /*预览*/
+            previewShow: false,
+            previewArticleTitle: "",
+            previewArticleId: "",
+            previewOutlineShow: true
+        },
+        mounted() {
+            this.getCategorySelects();
+            this.handlePageGet();
+        },
+         methods: {
+            // 新增
+            addArticle() {
+                window.location.href = "article/edit";
+            },
+            // 更新状态
+            updateArticleStatus(row) {
+                const newStatus = row.articleStatus === 1 ? 0 : 1;
+                this.$post("article/status", {id: row.id, articleStatus: newStatus}).then(re => {
+                    if (re.data && re.data.code === 200) {
+                        this.handlePageGet();
+                        this.successMsg("更新成功");
+                    } else {
+                        this.errorMsg(re.data.msg);
+                    }
+                });
+            },
+            // 编辑
+            handleArticleEdit(row) {
+                window.location.href = "article/edit/" + row.id;
+            },
+
+            //打开预览
+            handleDialogOpen(row) {
+                let self = this;
+                this.previewShow = true;
+                this.previewArticleTitle = row.articleTitle;
+                this.previewArticleId = row.id;
+
+                this.$nextTick(() => {
+                    let article = document.getElementById('previewArticle');
+                    article.innerHTML = row.articleContent;
+
+                    //代码高亮和行号
+                    this.$nextTick(() => {
+                            document.querySelectorAll('pre code').forEach(block => {
+                                // 高亮
+                                hljs.highlightBlock(block);
+                                //行号
+                                hljs.lineNumbersBlock(block);
+                                //复制按钮
+                                const button = document.createElement('i');
+                                button.className = 'copy-button';
+                                button.classList.add('el-icon-document-copy');
+                                //绑定点击事件
+                                button.onclick = () => {
+                                    try {
+                                        //提取原始代码
+                                        let originalCode = '';
+                                        if (block.childNodes.length > 0) {
+                                            const targetElements = block.querySelectorAll(".hljs-ln-code");
+                                            //拼接
+                                            originalCode = Array.from(targetElements).map(node => node.innerText).join('\n');
+                                        } else {
+                                            originalCode = block.innerText || block.textContent || '';
+                                        }
+                                        originalCode = originalCode.trim();
+
+                                        //复制到剪贴板
+                                        navigator.clipboard.writeText(originalCode).then(() => {
+                                            button.classList.replace('el-icon-document-copy', 'el-icon-check');
+                                            setTimeout(() => {
+                                                button.classList.remove('active');
+                                                button.classList.replace('el-icon-check', 'el-icon-document-copy');
+                                            }, 1500);
+                                        }).catch(err => {
+                                            console.error('复制失败:', err);
+                                        });
+                                    } catch (error) {
+                                        console.error('复制操作异常:', error);
+                                    }
+                                };
+                                //将按钮添加到代码块的父元素中
+                                block.parentNode.appendChild(button);
+                            });
+                        });
+                    });
+            },
+            handleDialogClose() {
+                document.getElementById('previewArticle').innerHTML = "";
+                this.previewShow = false;
+            },
+
+            //强制刷新表格
+            handleImageLoad() {
+                this.$refs.tableRef.doLayout();
+            },
+            // 目录跳转
+            outlineListener(ev) {
+                clickEditor(ev);
+            }
+        }
+    })
+</script>
+
+</body>
+</html>

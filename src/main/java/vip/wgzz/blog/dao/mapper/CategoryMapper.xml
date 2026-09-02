@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="vip.wgzz.blog.dao.CategoryDao">
+
+    <select id="getCategoryWithArticleNumList" resultType="vip.wgzz.blog.model.po.CategoryPO">
+        SELECT
+            c.id,
+            c.category_name,
+            c.sort,
+            COALESCE(a.number, 0) AS number
+        FROM tb_category c
+        LEFT JOIN (
+            SELECT category_id, COUNT(*) AS number
+            FROM tb_article
+            WHERE article_status = 1
+            GROUP BY category_id
+        ) a ON a.category_id = c.id
+        ORDER BY c.sort DESC, c.id DESC;
+    </select>
+
+</mapper>
